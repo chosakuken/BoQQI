@@ -18,6 +18,7 @@ import {
   StringContext,
   VarContext,
 } from "../parser/generated/BoQQIParser.js";
+import { SourceLocation } from "../diagnostics/sourceLocation.js";
 import { AssignNode } from "./nodes/assign.js";
 import { BinaryNode, type BinaryOperator } from "./nodes/binary.js";
 import { BoolNode } from "./nodes/bool.js";
@@ -34,7 +35,7 @@ import { StringNode } from "./nodes/string.js";
 import { VarNode } from "./nodes/var.js";
 
 export function buildProgramAst(ctx: ProgramContext): ProgramNode {
-  return new ProgramNode(ctx.statement().map(buildStatementAst));
+  return new ProgramNode(ctx.statement().map(buildStatementAst), location(ctx));
 }
 
 export function buildStatementAst(ctx: StatementContext): StatementNode {
@@ -77,7 +78,12 @@ export function buildIfAst(ctx: IfContext): IfNode {
 
   const elseToken = ctx.ELSE();
   if (elseToken === null) {
-    return new IfNode(buildExprAst(ctx.expr()), thenStatements);
+    return new IfNode(
+      buildExprAst(ctx.expr()),
+      thenStatements,
+      undefined,
+      location(ctx),
+    );
   }
 
   const elseOpen = ctx.LBRACE(1);
@@ -93,11 +99,20 @@ export function buildIfAst(ctx: IfContext): IfNode {
     elseClose.getSymbol().tokenIndex,
   ).map(buildStatementAst);
 
-  return new IfNode(buildExprAst(ctx.expr()), thenStatements, elseStatements);
+  return new IfNode(
+    buildExprAst(ctx.expr()),
+    thenStatements,
+    elseStatements,
+    location(ctx),
+  );
 }
 
 export function buildAssignAst(ctx: AssignContext): AssignNode {
-  return new AssignNode(ctx.IDENT().getText(), buildExprAst(ctx.expr()));
+  return new AssignNode(
+    ctx.IDENT().getText(),
+    buildExprAst(ctx.expr()),
+    location(ctx),
+  );
 }
 
 export function buildDeclareAst(ctx: DeclareContext): DeclareNode {
@@ -116,6 +131,7 @@ export function buildDeclareAst(ctx: DeclareContext): DeclareNode {
     ctx.IDENT().getText(),
     domain,
     initExpr === null ? undefined : buildExprAst(initExpr),
+    location(ctx),
   );
 }
 
@@ -145,24 +161,38 @@ export function buildCallAst(ctx: CallContext): CallNode {
   return new CallNode(
     ctx.IDENT().getText(),
     ctx.args().expr().map(buildExprAst),
+    location(ctx),
   );
 }
 
 export function buildExprAst(ctx: ExprContext): ExprNode {
   if (ctx instanceof IntContext) {
-    return new IntNode(Number(ctx.INT().getText()));
+    return new IntNode(
+      Number(ctx.INT().getText()),
+      undefined,
+      undefined,
+      location(ctx),
+    );
   }
 
   if (ctx instanceof FloatContext) {
-    return new FloatNode(Number(ctx.FLOAT().getText()));
+    return new FloatNode(
+      Number(ctx.FLOAT().getText()),
+      undefined,
+      undefined,
+      location(ctx),
+    );
   }
 
   if (ctx instanceof StringContext) {
-    return new StringNode(parseStringLiteral(ctx.STRING().getText()));
+    return new StringNode(
+      parseStringLiteral(ctx.STRING().getText()),
+      location(ctx),
+    );
   }
 
   if (ctx instanceof BoolContext) {
-    return new BoolNode(ctx.boolean().TRUE() !== null);
+    return new BoolNode(ctx.boolean().TRUE() !== null, location(ctx));
   }
 
   if (ctx instanceof ParensContext) {
@@ -170,7 +200,7 @@ export function buildExprAst(ctx: ExprContext): ExprNode {
   }
 
   if (ctx instanceof VarContext) {
-    return new VarNode(ctx.IDENT().getText());
+    return new VarNode(ctx.IDENT().getText(), location(ctx));
   }
 
   if (ctx instanceof AddSubContext || ctx instanceof MulDivContext) {
@@ -190,7 +220,12 @@ export function buildExprAst(ctx: ExprContext): ExprNode {
       );
     }
 
-    return new BinaryNode(operator, buildExprAst(left), buildExprAst(right));
+    return new BinaryNode(
+      operator,
+      buildExprAst(left),
+      buildExprAst(right),
+      location(ctx),
+    );
   }
 
   if (ctx instanceof CompContext || ctx instanceof EqContext) {
@@ -210,10 +245,28 @@ export function buildExprAst(ctx: ExprContext): ExprNode {
       );
     }
 
-    return new CompareNode(operator, buildExprAst(left), buildExprAst(right));
+    return new CompareNode(
+      operator,
+      buildExprAst(left),
+      buildExprAst(right),
+      location(ctx),
+    );
   }
 
   throw new Error(`Unsupported expression context: ${ctx.constructor.name}`);
+}
+
+function location(ctx: {
+  start?: { line: number; column: number } | null;
+}): SourceLocation | undefined {
+  if (ctx.start === undefined || ctx.start === null) {
+    return undefined;
+  }
+
+  return {
+    line: ctx.start.line,
+    column: ctx.start.column,
+  };
 }
 
 function parseStringLiteral(value: string): string {

@@ -1,3 +1,5 @@
+import { SourceLocation } from "../diagnostics/sourceLocation.js";
+
 export type ValueType = "int" | "float" | "string" | "bool";
 
 export interface DomainSpec {
@@ -5,7 +7,9 @@ export interface DomainSpec {
   readonly max: number;
 }
 
-export type Instruction =
+export type Instruction = {
+  readonly location?: SourceLocation;
+} & (
   | { readonly op: "PUSH_INT"; readonly value: number }
   | { readonly op: "PUSH_FLOAT"; readonly value: number }
   | { readonly op: "PUSH_STRING"; readonly value: string }
@@ -31,4 +35,5 @@ export type Instruction =
   | { readonly op: "JUMP"; readonly target: number }
   | { readonly op: "JUMP_IF_FALSE"; readonly target: number }
   | { readonly op: "CALL"; readonly name: string; readonly argc: number }
-  | { readonly op: "POP" };
+  | { readonly op: "POP" }
+);
