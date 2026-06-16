@@ -4,6 +4,8 @@ import {
   IntValue,
   StringValue,
 } from "../visitor/interpreter/runtimeValue/valuableValue.js";
+import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
+import { SourceFrame } from "../diagnostics/sourceLocation.js";
 import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
 import { DomainSpec, Instruction, ValueType } from "./instruction.js";
 
@@ -19,6 +21,7 @@ export class BoqqiVM {
   private readonly stack: RuntimeValue[] = [];
   private readonly vars = new Map<string, Var>();
   private readonly funcs = new Map<string, Func>();
+  private currentInstruction?: Instruction;
 
   constructor(
     private readonly instructions: Instruction[],
@@ -37,7 +40,19 @@ export class BoqqiVM {
       const instruction = this.instructions[this.pc];
 
       this.pc += 1;
-      this.execute(instruction);
+      this.currentInstruction = instruction;
+      try {
+        this.execute(instruction);
+      } catch (error) {
+        if (error instanceof BoqqiRuntimeError) {
+          throw error;
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+        this.fail(message);
+      } finally {
+        this.currentInstruction = undefined;
+      }
     }
 
     return new IntValue(0);
@@ -105,10 +120,10 @@ export class BoqqiVM {
     const left = this.pop();
 
     if (typeof left.value !== "number") {
-      throw new Error("式の左辺には数値を入力しなければなりません");
+      this.fail("式の左辺には数値を入力しなければなりません");
     }
     if (typeof right.value !== "number") {
-      throw new Error("式の右辺には数値を入力しなければなりません");
+      this.fail("式の右辺には数値を入力しなければなりません");
     }
 
     switch (op) {
@@ -138,7 +153,7 @@ export class BoqqiVM {
         break;
       case "DIV":
         if (right.value === 0) {
-          throw new Error("0 除算が検出されました");
+          this.fail("0 除算が検出されました");
         }
         this.stack.push(
           this.numberToRuntimeValue(
@@ -183,10 +198,10 @@ export class BoqqiVM {
     domain: DomainSpec | undefined,
   ): void {
     if (this.vars.has(name)) {
-      throw new Error(`変数 ${name} は既に宣言済みです`);
+      this.fail(`変数 ${name} は既に宣言済みです`);
     }
     if (value.type !== type) {
-      throw new Error(
+      this.fail(
         `変数 ${name} は ${type} 型ですが、${value.type} 型で初期化されようとしました`,
       );
     }
@@ -199,10 +214,10 @@ export class BoqqiVM {
     const currentVar = this.vars.get(name);
 
     if (currentVar === undefined) {
-      throw new Error(`変数 ${name} は宣言されていません`);
+      this.fail(`変数 ${name} は宣言されていません`);
     }
     if (value.type !== currentVar.runtimeValue.type) {
-      throw new Error(
+      this.fail(
         `変数 ${name} は ${currentVar.runtimeValue.type} 型ですが、${value.type} 型が代入されようとしました`,
       );
     }
@@ -217,7 +232,7 @@ export class BoqqiVM {
   private load(name: string): RuntimeValue {
     const variable = this.vars.get(name);
     if (variable === undefined) {
-      throw new Error(`変数 ${name} は未定義です`);
+      this.fail(`変数 ${name} は未定義です`);
     }
 
     return variable.runtimeValue;
@@ -232,7 +247,7 @@ export class BoqqiVM {
     const cond = this.pop();
 
     if (typeof cond.value !== "boolean") {
-      throw new Error("if 文の条件式には真偽値を入力しなければなりません");
+      this.fail("if 文の条件式には真偽値を入力しなければなりません");
     }
 
     if (!cond.value) {
@@ -243,12 +258,12 @@ export class BoqqiVM {
   private call(name: string, argc: number): void {
     const func = this.funcs.get(name);
     if (func === undefined) {
-      throw new Error(`関数 ${name} は未定義です`);
+      this.fail(`関数 ${name} は未定義です`);
     }
 
     const args = this.stack.splice(this.stack.length - argc, argc);
     if (args.length !== argc) {
-      throw new Error(`関数 ${name} の引数が不足しています`);
+      this.fail(`関数 ${name} の引数が不足しています`);
     }
 
     this.stack.push(func(args));
@@ -257,7 +272,7 @@ export class BoqqiVM {
   private pop(): RuntimeValue {
     const value = this.stack.pop();
     if (value === undefined) {
-      throw new Error("スタックが空です");
+      this.fail("スタックが空です");
     }
 
     return value;
@@ -272,7 +287,7 @@ export class BoqqiVM {
     const max = this.pop();
 
     if (typeof max.value !== "number" || typeof min.value !== "number") {
-      throw new Error(`変数 ${name} の定義域には数値を指定してください`);
+      this.fail(`変数 ${name} の定義域には数値を指定してください`);
     }
 
     return {
@@ -290,7 +305,7 @@ export class BoqqiVM {
 
   private numberToRuntimeValue(type: ValueType, value: number): RuntimeValue {
     if (!Number.isFinite(value)) {
-      throw new Error("計算結果が有限の数値ではありません");
+      this.fail("計算結果が有限の数値ではありません");
     }
     if (type === "int") {
       return new IntValue(Math.floor(value));
@@ -307,10 +322,10 @@ export class BoqqiVM {
       return;
     }
     if (typeof value.value !== "number") {
-      throw new Error(`変数 ${name} の定義域チェックには数値が必要です`);
+      this.fail(`変数 ${name} の定義域チェックには数値が必要です`);
     }
     if (value.value < domain.min || value.value > domain.max) {
-      throw new Error(
+      this.fail(
         `変数 ${name} に定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が代入されようとしました`,
       );
     }
@@ -322,7 +337,19 @@ export class BoqqiVM {
       target < 0 ||
       target > this.instructions.length
     ) {
-      throw new Error(`ジャンプ先 ${String(target)} は不正です`);
+      this.fail(`ジャンプ先 ${String(target)} は不正です`);
     }
+  }
+
+  private fail(message: string): never {
+    const frame: SourceFrame = {
+      label:
+        this.currentInstruction === undefined
+          ? "vm"
+          : `vm ${this.currentInstruction.op}`,
+      location: this.currentInstruction?.location,
+    };
+
+    throw new BoqqiRuntimeError(message, [frame]);
   }
 }
