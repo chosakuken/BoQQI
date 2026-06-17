@@ -18,6 +18,7 @@ import {
   ParensContext,
   ProgramContext,
   ReturnContext,
+  ReturnTypeContext,
   StatementContext,
   StringContext,
   VarContext,
@@ -31,7 +32,11 @@ import { CompareNode, type CompareOperator } from "./nodes/compare.js";
 import { DeclareNode, type DomainNode } from "./nodes/declare.js";
 import type { ExprNode } from "./nodes/expr.js";
 import { FloatNode } from "./nodes/float.js";
-import { FunctionNode, type ParamNode } from "./nodes/function.js";
+import {
+  FunctionNode,
+  type ParamNode,
+  type ReturnTypeNode,
+} from "./nodes/function.js";
 import { IfNode } from "./nodes/if.js";
 import { IntNode } from "./nodes/int.js";
 import { ProgramNode } from "./nodes/program.js";
@@ -135,9 +140,34 @@ export function buildFunctionAst(ctx: FunctionContext): FunctionNode {
   return new FunctionNode(
     ctx.IDENT().getText(),
     ctx.params().param().map(buildParamAst),
+    buildReturnTypeAst(ctx.returnType()),
     ctx.statement().map(buildStatementAst),
     location(ctx),
   );
+}
+
+export function buildReturnTypeAst(ctx: ReturnTypeContext): ReturnTypeNode {
+  const type = getReturnType(ctx);
+  const domainContext = ctx.domain();
+  const domain =
+    domainContext === null ? undefined : buildDomainAst(domainContext);
+
+  if ((type === "int" || type === "float") && domain === undefined) {
+    throw new Error(`${type} 型の戻り値には定義域が必要です: ${ctx.getText()}`);
+  }
+
+  return {
+    type,
+    domain,
+  };
+}
+
+function getReturnType(ctx: ReturnTypeContext): string {
+  const type = ctx.getChild(0)?.getText();
+  if (type === undefined) {
+    throw new Error(`戻り値の型が見つかりません: ${ctx.getText()}`);
+  }
+  return type;
 }
 
 export function buildParamAst(ctx: ParamContext): ParamNode {

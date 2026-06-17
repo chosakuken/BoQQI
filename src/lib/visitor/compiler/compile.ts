@@ -5,7 +5,11 @@ import { CallNode } from "../../ast/nodes/call.js";
 import { CompareNode } from "../../ast/nodes/compare.js";
 import { DeclareNode } from "../../ast/nodes/declare.js";
 import { FloatNode } from "../../ast/nodes/float.js";
-import { FunctionNode, ParamNode } from "../../ast/nodes/function.js";
+import {
+  FunctionNode,
+  ParamNode,
+  ReturnTypeNode,
+} from "../../ast/nodes/function.js";
 import { IfNode } from "../../ast/nodes/if.js";
 import { IntNode } from "../../ast/nodes/int.js";
 import { AstNode } from "../../ast/nodes/node.js";
@@ -35,6 +39,7 @@ interface CompileContext {
   readonly locals: Map<string, LocalSymbol>;
   localCount: number;
   readonly isFunction: boolean;
+  readonly returnType?: ReturnTypeNode;
 }
 
 export function compile(program: ProgramNode): BytecodeProgram {
@@ -236,6 +241,7 @@ class BoqqiCompiler implements Visitor<void> {
       locals: new Map<string, LocalSymbol>(),
       localCount: 0,
       isFunction: true,
+      returnType: node.returnType,
     };
 
     this.context = functionContext;
@@ -268,8 +274,9 @@ class BoqqiCompiler implements Visitor<void> {
       this.compileStatement(statement);
     }
 
-    this.emit({ op: "PUSH_INT", value: 0 }, node);
-    this.emit({ op: "RETURN" }, node);
+    const returnType = this.valueType(node.returnType.type);
+    this.emitDefaultValue(returnType, node);
+    this.emitReturn(node.returnType, node);
 
     this.functions.set(node.name, {
       name: node.name,
@@ -277,6 +284,8 @@ class BoqqiCompiler implements Visitor<void> {
       arity: node.params.length,
       localCount: functionContext.localCount,
       params,
+      returnType: this.valueType(node.returnType.type),
+      hasReturnDomain: node.returnType.domain !== undefined,
     });
 
     this.context = previousContext;
@@ -287,8 +296,11 @@ class BoqqiCompiler implements Visitor<void> {
     if (!this.context.isFunction) {
       throw new Error("return 文は関数の中でのみ使用できます");
     }
+    if (this.context.returnType === undefined) {
+      throw new Error("戻り値の型情報が見つかりません");
+    }
     node.expr.accept(this);
-    this.emit({ op: "RETURN" }, node);
+    this.emitReturn(this.context.returnType, node);
   }
 
   private emit(instruction: Instruction, node?: AstNode): number {
@@ -333,6 +345,15 @@ class BoqqiCompiler implements Visitor<void> {
         this.emit({ op: "PUSH_BOOL", value: false }, node);
         break;
     }
+  }
+
+  private emitReturn(returnType: ReturnTypeNode, node: AstNode): void {
+    if (returnType.domain !== undefined) {
+      returnType.domain.max.accept(this);
+      returnType.domain.min.accept(this);
+    }
+
+    this.emit({ op: "RETURN" }, node);
   }
 
   private allocateParams(params: ParamNode[]): ParamInfo[] {

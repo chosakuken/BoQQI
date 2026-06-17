@@ -16,14 +16,17 @@ import { VarNode } from "../../ast/nodes/var.js";
 import { CompareNode } from "../../ast/nodes/compare.js";
 import { IfNode } from "../../ast/nodes/if.js";
 import { FloatNode } from "../../ast/nodes/float.js";
-import { FunctionNode } from "../../ast/nodes/function.js";
+import {
+  FunctionNode,
+  ParamNode,
+  ReturnTypeNode,
+} from "../../ast/nodes/function.js";
 import { StringNode } from "../../ast/nodes/string.js";
 import { DeclareNode } from "../../ast/nodes/declare.js";
 import { AstNode } from "../../ast/nodes/node.js";
 import { BoqqiRuntimeError } from "../../diagnostics/runtimeError.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
-import { ParamNode } from "../../ast/nodes/function.js";
 
 interface Var {
   domain?: {
@@ -41,6 +44,7 @@ interface EnvFrame {
 interface UserFunction {
   readonly name: string;
   readonly params: ParamNode[];
+  readonly returnType: ReturnTypeNode;
   readonly body: FunctionNode["body"];
   readonly location: FunctionNode["location"];
 }
@@ -287,6 +291,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         fn: {
           name: node.name,
           params: node.params,
+          returnType: node.returnType,
           body: node.body,
           location: node.location,
         },
@@ -414,15 +419,70 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         statement.accept(this);
       }
       // voidはないので、正常動作であれば 0 を返す
-      return new IntValue(0);
+      return this.assertReturnValue(func, new IntValue(0));
     } catch (error) {
       if (error instanceof ReturnSignal) {
-        return error.value;
+        return this.assertReturnValue(func, error.value);
       }
       throw error;
     } finally {
       this.envFrames.pop();
     }
+  }
+
+  private assertReturnValue(
+    func: UserFunction,
+    value: RuntimeValue,
+  ): RuntimeValue {
+    if (value.type !== func.returnType.type) {
+      this.fail(
+        `関数 ${func.name} は ${func.returnType.type} 型を返す必要がありますが、${value.type} 型が返されました`,
+      );
+    }
+
+    const domain =
+      func.returnType.domain === undefined
+        ? undefined
+        : this.evalReturnDomain(func);
+    this.assertReturnWithinDomain(func.name, value, domain);
+
+    return value;
+  }
+
+  private assertReturnWithinDomain(
+    name: string,
+    value: RuntimeValue,
+    domain: Var["domain"],
+  ): void {
+    if (domain === undefined) {
+      return;
+    }
+    if (typeof value.value !== "number") {
+      this.fail(`関数 ${name} の戻り値の定義域チェックには数値が必要です`);
+    }
+    if (value.value < domain.min || value.value > domain.max) {
+      this.fail(
+        `関数 ${name} の戻り値として定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が返されました`,
+      );
+    }
+  }
+
+  private evalReturnDomain(func: UserFunction): Var["domain"] {
+    if (func.returnType.domain === undefined) {
+      return undefined;
+    }
+
+    const max = func.returnType.domain.max.accept(this);
+    const min = func.returnType.domain.min.accept(this);
+
+    if (typeof max.value !== "number" || typeof min.value !== "number") {
+      this.fail(`関数 ${func.name} の戻り値の定義域には数値を指定してください`);
+    }
+
+    return {
+      max: max.value,
+      min: min.value,
+    };
   }
 
   private evalParamDomain(param: ParamNode): Var["domain"] {

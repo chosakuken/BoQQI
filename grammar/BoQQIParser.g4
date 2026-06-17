@@ -22,7 +22,12 @@ if
     ;
 
 function
-    : FUNC IDENT LPAREN params RPAREN LBRACE statement* RBRACE
+    : FUNC IDENT LPAREN params RPAREN COLON returnType LBRACE statement* RBRACE
+    ;
+
+returnType
+    : numericType domain
+    | nonNumericType
     ;
 
 params

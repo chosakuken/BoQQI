@@ -10,10 +10,16 @@ export interface ParamNode {
   readonly domain?: DomainNode;
 }
 
+export interface ReturnTypeNode {
+  readonly type: string;
+  readonly domain?: DomainNode;
+}
+
 export class FunctionNode implements AstNode {
   readonly kind: "function";
   readonly name: string;
   readonly params: ParamNode[];
+  readonly returnType: ReturnTypeNode;
   readonly body: StatementNode[];
   readonly location?: SourceLocation;
 
@@ -24,12 +30,14 @@ export class FunctionNode implements AstNode {
   constructor(
     name: string,
     params: ParamNode[],
+    returnType: ReturnTypeNode,
     body: StatementNode[],
     location?: SourceLocation,
   ) {
     this.kind = "function";
     this.name = name;
     this.params = params;
+    this.returnType = returnType;
     this.body = body;
     this.location = location;
   }

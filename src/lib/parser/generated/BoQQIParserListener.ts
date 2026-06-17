@@ -6,6 +6,7 @@ import { ProgramContext } from "./BoQQIParser.js";
 import { StatementContext } from "./BoQQIParser.js";
 import { IfContext } from "./BoQQIParser.js";
 import { FunctionContext } from "./BoQQIParser.js";
+import { ReturnTypeContext } from "./BoQQIParser.js";
 import { ParamsContext } from "./BoQQIParser.js";
 import { ParamContext } from "./BoQQIParser.js";
 import { ReturnContext } from "./BoQQIParser.js";
@@ -76,6 +77,16 @@ export class BoQQIParserListener implements ParseTreeListener {
      * @param ctx the parse tree
      */
     exitFunction?: (ctx: FunctionContext) => void;
+    /**
+     * Enter a parse tree produced by `BoQQIParser.returnType`.
+     * @param ctx the parse tree
+     */
+    enterReturnType?: (ctx: ReturnTypeContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.returnType`.
+     * @param ctx the parse tree
+     */
+    exitReturnType?: (ctx: ReturnTypeContext) => void;
     /**
      * Enter a parse tree produced by `BoQQIParser.params`.
      * @param ctx the parse tree

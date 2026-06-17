@@ -26,6 +26,8 @@ interface CallFrame {
   readonly functionName: string;
   readonly returnPc: number;
   readonly locals: LocalSlot[];
+  readonly returnType: ValueType;
+  readonly hasReturnDomain: boolean;
 }
 
 type BuiltinFunc = (args: RuntimeValue[]) => RuntimeValue;
@@ -45,6 +47,8 @@ export class BoqqiVM {
       functionName: "global",
       returnPc: -1,
       locals: this.createLocalSlots(program.globalLocalCount),
+      returnType: "int",
+      hasReturnDomain: false,
     });
 
     this.funcs.set("print", (args: RuntimeValue[]) => {
@@ -367,6 +371,8 @@ export class BoqqiVM {
       functionName: name,
       returnPc: this.pc,
       locals,
+      returnType: func.returnType,
+      hasReturnDomain: func.hasReturnDomain,
     });
     this.jump(func.entryPc);
   }
@@ -376,7 +382,19 @@ export class BoqqiVM {
       this.fail("return 文は関数の中でのみ使用できます");
     }
 
+    const currentFrame = this.currentFrame();
+    const domain = this.popDomain(
+      currentFrame.functionName,
+      currentFrame.hasReturnDomain,
+    );
     const value = this.pop();
+    if (value.type !== currentFrame.returnType) {
+      this.fail(
+        `関数 ${currentFrame.functionName} は ${currentFrame.returnType} 型を返す必要がありますが、${value.type} 型が返されました`,
+      );
+    }
+    this.assertReturnWithinDomain(currentFrame.functionName, value, domain);
+
     const frame = this.frames.pop();
     if (frame === undefined) {
       this.fail("関数フレームが存在しません");
@@ -444,6 +462,24 @@ export class BoqqiVM {
     if (value.value < domain.min || value.value > domain.max) {
       this.fail(
         `変数 ${name} に定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が代入されようとしました`,
+      );
+    }
+  }
+
+  private assertReturnWithinDomain(
+    name: string,
+    value: RuntimeValue,
+    domain: DomainSpec | undefined,
+  ): void {
+    if (domain === undefined) {
+      return;
+    }
+    if (typeof value.value !== "number") {
+      this.fail(`関数 ${name} の戻り値の定義域チェックには数値が必要です`);
+    }
+    if (value.value < domain.min || value.value > domain.max) {
+      this.fail(
+        `関数 ${name} の戻り値として定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が返されました`,
       );
     }
   }

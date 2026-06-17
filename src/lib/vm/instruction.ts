@@ -23,6 +23,8 @@ export interface CompiledFunction {
   readonly arity: number;
   readonly localCount: number;
   readonly params: ParamInfo[];
+  readonly returnType: ValueType;
+  readonly hasReturnDomain: boolean;
 }
 
 export interface BytecodeProgram {
