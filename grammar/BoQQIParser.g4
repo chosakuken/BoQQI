@@ -10,6 +10,7 @@ program
 
 statement
     : if
+    | while
     | function
     | call SEMI
     | declare SEMI
@@ -19,6 +20,10 @@ statement
 
 if
     : IF LPAREN expr RPAREN LBRACE statement* RBRACE (ELSE LBRACE statement* RBRACE)?
+    ;
+
+while
+    : WHILE LPAREN expr RPAREN LBRACE statement* RBRACE
     ;
 
 function

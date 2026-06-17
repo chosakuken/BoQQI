@@ -2,6 +2,7 @@ lexer grammar BoQQILexer;
 
 IF : 'if' ;
 ELSE : 'else' ;
+WHILE : 'while' ;
 TRUE : 'true' ;
 FALSE : 'false' ;
 MAX : 'max' ;

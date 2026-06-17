@@ -22,6 +22,7 @@ import {
   StatementContext,
   StringContext,
   VarContext,
+  WhileContext,
 } from "../parser/generated/BoQQIParser.js";
 import { SourceLocation } from "../diagnostics/sourceLocation.js";
 import { AssignNode } from "./nodes/assign.js";
@@ -44,6 +45,7 @@ import { ReturnNode } from "./nodes/return.js";
 import type { StatementNode } from "./nodes/statement.js";
 import { StringNode } from "./nodes/string.js";
 import { VarNode } from "./nodes/var.js";
+import { WhileNode } from "./nodes/while.js";
 
 export function buildProgramAst(ctx: ProgramContext): ProgramNode {
   return new ProgramNode(ctx.statement().map(buildStatementAst), location(ctx));
@@ -53,6 +55,11 @@ export function buildStatementAst(ctx: StatementContext): StatementNode {
   const if_ = ctx.if();
   if (if_ !== null) {
     return buildIfAst(if_);
+  }
+
+  const while_ = ctx.while();
+  if (while_ !== null) {
+    return buildWhileAst(while_);
   }
 
   const function_ = ctx.function();
@@ -126,6 +133,19 @@ export function buildIfAst(ctx: IfContext): IfNode {
     elseStatements,
     location(ctx),
   );
+}
+
+export function buildWhileAst(ctx: WhileContext): WhileNode {
+  const bodyOpen = ctx.LBRACE();
+  const bodyClose = ctx.RBRACE();
+
+  const bodyStatements = getStatementsBetween(
+    ctx,
+    bodyOpen.getSymbol().tokenIndex,
+    bodyClose.getSymbol().tokenIndex,
+  ).map(buildStatementAst);
+
+  return new WhileNode(buildExprAst(ctx.expr()), bodyStatements, location(ctx));
 }
 
 export function buildAssignAst(ctx: AssignContext): AssignNode {
@@ -396,7 +416,7 @@ function isCompareOperator(
 }
 
 function getStatementsBetween(
-  ctx: IfContext,
+  ctx: IfContext | WhileContext,
   startTokenIndex: number,
   stopTokenIndex: number,
 ): StatementContext[] {
