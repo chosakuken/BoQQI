@@ -1,6 +1,6 @@
 import { Visitor } from "../../visitor/visitor.js";
 import { SourceLocation } from "../../diagnostics/sourceLocation.js";
-import { ExprNode } from "./expr.js";
+import type { ExprNode } from "./expr.js";
 import { AstNode } from "./node.js";
 
 export class CallNode implements AstNode {

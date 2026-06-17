@@ -5,9 +5,11 @@ import { CallNode } from "../ast/nodes/call.js";
 import { CompareNode } from "../ast/nodes/compare.js";
 import { DeclareNode } from "../ast/nodes/declare.js";
 import { FloatNode } from "../ast/nodes/float.js";
+import { FunctionNode } from "../ast/nodes/function.js";
 import { IfNode } from "../ast/nodes/if.js";
 import { IntNode } from "../ast/nodes/int.js";
 import { ProgramNode } from "../ast/nodes/program.js";
+import { ReturnNode } from "../ast/nodes/return.js";
 import { StringNode } from "../ast/nodes/string.js";
 import { VarNode } from "../ast/nodes/var.js";
 
@@ -25,4 +27,6 @@ export interface Visitor<T> {
   visitDeclare(node: DeclareNode): T;
   visitVar(node: VarNode): T;
   visitIf(node: IfNode): T;
+  visitFunction(node: FunctionNode): T;
+  visitReturn(node: ReturnNode): T;
 }

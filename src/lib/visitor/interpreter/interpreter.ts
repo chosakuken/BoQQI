@@ -16,11 +16,17 @@ import { VarNode } from "../../ast/nodes/var.js";
 import { CompareNode } from "../../ast/nodes/compare.js";
 import { IfNode } from "../../ast/nodes/if.js";
 import { FloatNode } from "../../ast/nodes/float.js";
+import {
+  FunctionNode,
+  ParamNode,
+  ReturnTypeNode,
+} from "../../ast/nodes/function.js";
 import { StringNode } from "../../ast/nodes/string.js";
 import { DeclareNode } from "../../ast/nodes/declare.js";
 import { AstNode } from "../../ast/nodes/node.js";
 import { BoqqiRuntimeError } from "../../diagnostics/runtimeError.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
+import { ReturnNode } from "../../ast/nodes/return.js";
 
 interface Var {
   domain?: {
@@ -29,24 +35,52 @@ interface Var {
   };
   runtimeValue: RuntimeValue;
 }
-type Func = (args: RuntimeValue[]) => RuntimeValue;
+
+interface EnvFrame {
+  readonly name: string;
+  readonly vars: Map<string, Var>;
+}
+
+interface UserFunction {
+  readonly name: string;
+  readonly params: ParamNode[];
+  readonly returnType: ReturnTypeNode;
+  readonly body: FunctionNode["body"];
+  readonly location: FunctionNode["location"];
+}
+
+type FunctionValue =
+  | {
+      readonly kind: "builtin";
+      readonly call: (args: RuntimeValue[]) => RuntimeValue;
+    }
+  | { readonly kind: "user"; readonly fn: UserFunction };
+
+class ReturnSignal extends Error {
+  constructor(readonly value: RuntimeValue) {
+    super("return");
+  }
+}
 
 export class BoqqiInterpreter implements Visitor<RuntimeValue> {
-  private funcs: Map<string, Func>; // 関数表
-  private vars: Map<string, Var>; // 変数表
+  private funcs: Map<string, FunctionValue>; // 関数表
+  private envFrames: EnvFrame[]; // 変数表
   private readonly frames: SourceFrame[] = [];
   private readonly output: (text: string) => void; // 出力先
 
   constructor(private readonly outputDevice: (text: string) => void) {
     this.output = outputDevice;
-    this.funcs = new Map<string, Func>();
-    this.vars = new Map<string, Var>();
+    this.funcs = new Map<string, FunctionValue>();
+    this.envFrames = [{ name: "global", vars: new Map<string, Var>() }];
     // 組み込み関数
-    this.funcs.set("print", (args: RuntimeValue[]) => {
-      for (const arg of args) {
-        this.output(`${String(arg.value)}\n`);
-      }
-      return new IntValue(0); // 正常動作として 0 を返す
+    this.funcs.set("print", {
+      kind: "builtin",
+      call: (args: RuntimeValue[]) => {
+        for (const arg of args) {
+          this.output(`${String(arg.value)}\n`);
+        }
+        return new IntValue(0); // 正常動作として 0 を返す
+      },
     });
   }
   // ビジター
@@ -158,13 +192,17 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         args.push(child.accept(this));
       }
       // 実行
-      return func(args);
+      if (func.kind === "builtin") {
+        return func.call(args);
+      }
+
+      return this.callUserFunction(func.fn, args);
     });
   }
   visitAssign(node: AssignNode): RuntimeValue {
     return this.withFrame(node, `assign ${node.name}`, () => {
       const value = node.expr.accept(this);
-      const currentVar = this.vars.get(node.name);
+      const currentVar = this.findVar(node.name);
       // エラーハンドリング
       if (currentVar === undefined) {
         this.fail(`変数 ${node.name} は宣言されていません`);
@@ -175,16 +213,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         );
       }
       this.assertWithinDomain(node.name, value, currentVar.domain);
-      this.vars.set(node.name, {
-        ...currentVar,
-        runtimeValue: value,
-      });
+      currentVar.runtimeValue = value;
       return value;
     });
   }
   visitDeclare(node: DeclareNode): RuntimeValue {
     return this.withFrame(node, `declare ${node.name}`, () => {
-      if (this.vars.has(node.name)) {
+      const vars = this.currentEnvFrame().vars;
+      if (vars.has(node.name)) {
         this.fail(`変数 ${node.name} は既に宣言済みです`);
       }
       const domain =
@@ -205,7 +241,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         case "float":
         case "string":
         case "bool":
-          this.vars.set(node.name, {
+          vars.set(node.name, {
             domain,
             runtimeValue: value,
           });
@@ -218,7 +254,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   }
   visitVar(node: VarNode): RuntimeValue {
     return this.withFrame(node, `load ${node.name}`, () => {
-      const variable = this.vars.get(node.name);
+      const variable = this.findVar(node.name);
       if (variable === undefined) {
         this.fail(`変数 ${node.name} は未定義です`);
       }
@@ -243,6 +279,34 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         }
       }
       return new IntValue(0); // 正常動作として 0 を返す
+    });
+  }
+  visitFunction(node: FunctionNode): RuntimeValue {
+    return this.withFrame(node, `function ${node.name}`, () => {
+      if (this.funcs.has(node.name)) {
+        this.fail(`関数 ${node.name} は既に定義済みです`);
+      }
+      this.funcs.set(node.name, {
+        kind: "user",
+        fn: {
+          name: node.name,
+          params: node.params,
+          returnType: node.returnType,
+          body: node.body,
+          location: node.location,
+        },
+      });
+      return new IntValue(0);
+    });
+  }
+  visitReturn(node: ReturnNode): RuntimeValue {
+    return this.withFrame(node, "return", () => {
+      // 関数環境内で実行されない場合、エラーとする
+      if (this.envFrames.length <= 1) {
+        this.fail("return 文は関数の中でのみ使用できます");
+      }
+      // 例外として中断する形式
+      throw new ReturnSignal(node.expr.accept(this));
     });
   }
   // ヘルパー関数
@@ -306,6 +370,160 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       );
     }
   }
+  // ユーザ定義の関数を呼び出す
+  private callUserFunction(
+    func: UserFunction,
+    args: RuntimeValue[],
+  ): RuntimeValue {
+    if (args.length !== func.params.length) {
+      this.fail(
+        `関数 ${func.name} は ${String(func.params.length)} 個の引数を取りますが、${String(args.length)} 個渡されました`,
+      );
+    }
+    // 新環境として、フレームをスタックに積む
+    const frame: EnvFrame = {
+      name: func.name,
+      vars: new Map<string, Var>(),
+    };
+    this.envFrames.push(frame);
+    try {
+      // 引数の設定(型チェック)
+      for (const [index, param] of func.params.entries()) {
+        const value = args[index];
+
+        if (value.type !== param.type) {
+          this.fail(
+            `関数 ${func.name} の引数 ${param.name} は ${param.type} 型ですが、${value.type} 型が渡されました`,
+          );
+        }
+
+        frame.vars.set(param.name, {
+          runtimeValue: value,
+        });
+      }
+      // 引数の初期化(実値代入)
+      for (const param of func.params) {
+        const variable = frame.vars.get(param.name);
+        if (variable === undefined) {
+          this.fail(`引数 ${param.name} の初期化に失敗しました`);
+        }
+
+        const domain =
+          param.domain === undefined ? undefined : this.evalParamDomain(param);
+        this.assertWithinDomain(param.name, variable.runtimeValue, domain);
+
+        variable.domain = domain;
+      }
+      // 関数の実行
+      for (const statement of func.body) {
+        statement.accept(this);
+      }
+      // voidはないので、正常動作であれば 0 を返す
+      return this.assertReturnValue(func, new IntValue(0));
+    } catch (error) {
+      if (error instanceof ReturnSignal) {
+        return this.assertReturnValue(func, error.value);
+      }
+      throw error;
+    } finally {
+      this.envFrames.pop();
+    }
+  }
+
+  private assertReturnValue(
+    func: UserFunction,
+    value: RuntimeValue,
+  ): RuntimeValue {
+    if (value.type !== func.returnType.type) {
+      this.fail(
+        `関数 ${func.name} は ${func.returnType.type} 型を返す必要がありますが、${value.type} 型が返されました`,
+      );
+    }
+
+    const domain =
+      func.returnType.domain === undefined
+        ? undefined
+        : this.evalReturnDomain(func);
+    this.assertReturnWithinDomain(func.name, value, domain);
+
+    return value;
+  }
+
+  private assertReturnWithinDomain(
+    name: string,
+    value: RuntimeValue,
+    domain: Var["domain"],
+  ): void {
+    if (domain === undefined) {
+      return;
+    }
+    if (typeof value.value !== "number") {
+      this.fail(`関数 ${name} の戻り値の定義域チェックには数値が必要です`);
+    }
+    if (value.value < domain.min || value.value > domain.max) {
+      this.fail(
+        `関数 ${name} の戻り値として定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が返されました`,
+      );
+    }
+  }
+
+  private evalReturnDomain(func: UserFunction): Var["domain"] {
+    if (func.returnType.domain === undefined) {
+      return undefined;
+    }
+
+    const max = func.returnType.domain.max.accept(this);
+    const min = func.returnType.domain.min.accept(this);
+
+    if (typeof max.value !== "number" || typeof min.value !== "number") {
+      this.fail(`関数 ${func.name} の戻り値の定義域には数値を指定してください`);
+    }
+
+    return {
+      max: max.value,
+      min: min.value,
+    };
+  }
+
+  private evalParamDomain(param: ParamNode): Var["domain"] {
+    if (param.domain === undefined) {
+      return undefined;
+    }
+
+    const max = param.domain.max.accept(this);
+    const min = param.domain.min.accept(this);
+
+    if (typeof max.value !== "number" || typeof min.value !== "number") {
+      this.fail(`引数 ${param.name} の定義域には数値を指定してください`);
+    }
+
+    return {
+      max: max.value,
+      min: min.value,
+    };
+  }
+
+  private findVar(name: string): Var | undefined {
+    const currentFrame = this.currentEnvFrame();
+    const current = currentFrame.vars.get(name);
+    if (current !== undefined) {
+      return current;
+    }
+
+    if (this.envFrames.length <= 1) {
+      return undefined;
+    }
+
+    return this.envFrames[0].vars.get(name);
+  }
+
+  private currentEnvFrame(): EnvFrame {
+    const frame = this.envFrames.at(-1);
+    if (frame === undefined) {
+      this.fail("実行環境が存在しません");
+    }
+    return frame;
+  }
 
   private withFrame<T>(node: AstNode, label: string, run: () => T): T {
     this.frames.push({ label, location: node.location });
@@ -313,6 +531,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       return run();
     } catch (error) {
       if (error instanceof BoqqiRuntimeError) {
+        throw error;
+      }
+      if (error instanceof ReturnSignal) {
         throw error;
       }
 

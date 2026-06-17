@@ -2,6 +2,7 @@ import {
   AddSubContext,
   AssignContext,
   BoolContext,
+  CallExprContext,
   CallContext,
   CompContext,
   DeclareContext,
@@ -9,11 +10,15 @@ import {
   EqContext,
   ExprContext,
   FloatContext,
+  FunctionContext,
   IfContext,
   IntContext,
   MulDivContext,
+  ParamContext,
   ParensContext,
   ProgramContext,
+  ReturnContext,
+  ReturnTypeContext,
   StatementContext,
   StringContext,
   VarContext,
@@ -27,9 +32,15 @@ import { CompareNode, type CompareOperator } from "./nodes/compare.js";
 import { DeclareNode, type DomainNode } from "./nodes/declare.js";
 import type { ExprNode } from "./nodes/expr.js";
 import { FloatNode } from "./nodes/float.js";
+import {
+  FunctionNode,
+  type ParamNode,
+  type ReturnTypeNode,
+} from "./nodes/function.js";
 import { IfNode } from "./nodes/if.js";
 import { IntNode } from "./nodes/int.js";
 import { ProgramNode } from "./nodes/program.js";
+import { ReturnNode } from "./nodes/return.js";
 import type { StatementNode } from "./nodes/statement.js";
 import { StringNode } from "./nodes/string.js";
 import { VarNode } from "./nodes/var.js";
@@ -42,6 +53,11 @@ export function buildStatementAst(ctx: StatementContext): StatementNode {
   const if_ = ctx.if();
   if (if_ !== null) {
     return buildIfAst(if_);
+  }
+
+  const function_ = ctx.function();
+  if (function_ !== null) {
+    return buildFunctionAst(function_);
   }
 
   const call = ctx.call();
@@ -57,6 +73,11 @@ export function buildStatementAst(ctx: StatementContext): StatementNode {
   const declare = ctx.declare();
   if (declare !== null) {
     return buildDeclareAst(declare);
+  }
+
+  const return_ = ctx.return();
+  if (return_ !== null) {
+    return buildReturnAst(return_);
   }
 
   throw new Error(`Unsupported statement context: ${ctx.getText()}`);
@@ -113,6 +134,69 @@ export function buildAssignAst(ctx: AssignContext): AssignNode {
     buildExprAst(ctx.expr()),
     location(ctx),
   );
+}
+
+export function buildFunctionAst(ctx: FunctionContext): FunctionNode {
+  return new FunctionNode(
+    ctx.IDENT().getText(),
+    ctx.params().param().map(buildParamAst),
+    buildReturnTypeAst(ctx.returnType()),
+    ctx.statement().map(buildStatementAst),
+    location(ctx),
+  );
+}
+
+export function buildReturnTypeAst(ctx: ReturnTypeContext): ReturnTypeNode {
+  const type = getReturnType(ctx);
+  const domainContext = ctx.domain();
+  const domain =
+    domainContext === null ? undefined : buildDomainAst(domainContext);
+
+  if ((type === "int" || type === "float") && domain === undefined) {
+    throw new Error(`${type} 型の戻り値には定義域が必要です: ${ctx.getText()}`);
+  }
+
+  return {
+    type,
+    domain,
+  };
+}
+
+function getReturnType(ctx: ReturnTypeContext): string {
+  const type = ctx.getChild(0)?.getText();
+  if (type === undefined) {
+    throw new Error(`戻り値の型が見つかりません: ${ctx.getText()}`);
+  }
+  return type;
+}
+
+export function buildParamAst(ctx: ParamContext): ParamNode {
+  const type = getParamType(ctx);
+  const domainContext = ctx.domain();
+  const domain =
+    domainContext === null ? undefined : buildDomainAst(domainContext);
+
+  if ((type === "int" || type === "float") && domain === undefined) {
+    throw new Error(`${type} 型の引数には定義域が必要です: ${ctx.getText()}`);
+  }
+
+  return {
+    type,
+    name: ctx.IDENT().getText(),
+    domain,
+  };
+}
+
+function getParamType(ctx: ParamContext): string {
+  const type = ctx.getChild(0)?.getText();
+  if (type === undefined) {
+    throw new Error(`引数の型が見つかりません: ${ctx.getText()}`);
+  }
+  return type;
+}
+
+export function buildReturnAst(ctx: ReturnContext): ReturnNode {
+  return new ReturnNode(buildExprAst(ctx.expr()), location(ctx));
 }
 
 export function buildDeclareAst(ctx: DeclareContext): DeclareNode {
@@ -197,6 +281,10 @@ export function buildExprAst(ctx: ExprContext): ExprNode {
 
   if (ctx instanceof ParensContext) {
     return buildExprAst(ctx.expr());
+  }
+
+  if (ctx instanceof CallExprContext) {
+    return buildCallAst(ctx.call());
   }
 
   if (ctx instanceof VarContext) {
