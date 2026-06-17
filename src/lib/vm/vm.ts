@@ -32,9 +32,9 @@ type BuiltinFunc = (args: RuntimeValue[]) => RuntimeValue;
 
 export class BoqqiVM {
   private pc = 0;
-  private readonly stack: RuntimeValue[] = [];
-  private readonly frames: CallFrame[] = [];
-  private readonly funcs = new Map<string, BuiltinFunc>();
+  private readonly stack: RuntimeValue[] = []; // スタックマシン
+  private readonly frames: CallFrame[] = []; // 変数表
+  private readonly funcs = new Map<string, BuiltinFunc>(); // 関数表
   private currentInstruction?: Instruction;
 
   constructor(

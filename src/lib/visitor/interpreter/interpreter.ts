@@ -296,9 +296,11 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   }
   visitReturn(node: ReturnNode): RuntimeValue {
     return this.withFrame(node, "return", () => {
+      // 関数環境内で実行されない場合、エラーとする
       if (this.envFrames.length <= 1) {
         this.fail("return 文は関数の中でのみ使用できます");
       }
+      // 例外として中断する形式
       throw new ReturnSignal(node.expr.accept(this));
     });
   }
@@ -363,7 +365,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       );
     }
   }
-
+  // ユーザ定義の関数を呼び出す
   private callUserFunction(
     func: UserFunction,
     args: RuntimeValue[],
@@ -373,14 +375,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         `関数 ${func.name} は ${String(func.params.length)} 個の引数を取りますが、${String(args.length)} 個渡されました`,
       );
     }
-
+    // 新環境として、フレームをスタックに積む
     const frame: EnvFrame = {
       name: func.name,
       vars: new Map<string, Var>(),
     };
-
     this.envFrames.push(frame);
     try {
+      // 引数の設定(型チェック)
       for (const [index, param] of func.params.entries()) {
         const value = args[index];
 
@@ -394,7 +396,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
           runtimeValue: value,
         });
       }
-
+      // 引数の初期化(実値代入)
       for (const param of func.params) {
         const variable = frame.vars.get(param.name);
         if (variable === undefined) {
@@ -407,11 +409,11 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
 
         variable.domain = domain;
       }
-
+      // 関数の実行
       for (const statement of func.body) {
         statement.accept(this);
       }
-
+      // voidはないので、正常動作であれば 0 を返す
       return new IntValue(0);
     } catch (error) {
       if (error instanceof ReturnSignal) {
