@@ -319,7 +319,12 @@ class BoqqiCompiler implements Visitor<void> {
     if (this.context.returnType === undefined) {
       throw new Error("戻り値の型情報が見つかりません");
     }
-    node.expr.accept(this);
+
+    if (node.expr === undefined) {
+      this.emit({ op: "PUSH_VOID" }, node);
+    } else {
+      node.expr.accept(this);
+    }
     this.emitReturn(this.context.returnType, node);
   }
 
@@ -363,6 +368,9 @@ class BoqqiCompiler implements Visitor<void> {
         break;
       case "bool":
         this.emit({ op: "PUSH_BOOL", value: false }, node);
+        break;
+      case "void":
+        this.emit({ op: "PUSH_VOID" }, node);
         break;
     }
   }
@@ -429,6 +437,7 @@ class BoqqiCompiler implements Visitor<void> {
       case "float":
       case "string":
       case "bool":
+      case "void":
         return type;
       default:
         throw new Error(`型 ${type} は存在しません`);

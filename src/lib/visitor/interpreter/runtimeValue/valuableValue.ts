@@ -38,3 +38,12 @@ export class StringValue implements ValuableValue<string> {
     this.value = v;
   }
 }
+
+export class VoidValue implements ValuableValue<undefined> {
+  readonly type: "void";
+  readonly value: undefined;
+  constructor() {
+    this.type = "void";
+    this.value = undefined;
+  }
+}

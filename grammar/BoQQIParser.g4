@@ -33,6 +33,7 @@ function
 returnType
     : numericType domain
     | nonNumericType
+    | TYPE_VOID
     ;
 
 params
@@ -46,7 +47,7 @@ param
     ;
 
 return
-    : RETURN expr SEMI
+    : RETURN expr? SEMI
     ;
 
 call
