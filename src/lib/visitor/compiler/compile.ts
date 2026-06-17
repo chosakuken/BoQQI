@@ -143,7 +143,7 @@ class BoqqiCompiler implements Visitor<void> {
     node.expr.accept(this);
     this.emit(
       {
-        op: "STORE_LOCAL",
+        op: "STORE",
         slot: resolved.symbol.slot,
         name: resolved.symbol.name,
         scope: resolved.scope,
@@ -169,7 +169,7 @@ class BoqqiCompiler implements Visitor<void> {
 
     this.emit(
       {
-        op: "DECLARE_LOCAL",
+        op: "DECLARE",
         slot: symbol.slot,
         name: symbol.name,
         type,
@@ -183,7 +183,7 @@ class BoqqiCompiler implements Visitor<void> {
     const resolved = this.resolveLocal(node.name);
     this.emit(
       {
-        op: "LOAD_LOCAL",
+        op: "LOAD",
         slot: resolved.symbol.slot,
         name: resolved.symbol.name,
         scope: resolved.scope,

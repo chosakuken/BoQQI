@@ -92,12 +92,12 @@ export class BoqqiVM {
       case "PUSH_BOOL":
         this.stack.push(new BoolValue(instruction.value));
         break;
-      case "LOAD_LOCAL":
+      case "LOAD":
         this.stack.push(
           this.loadLocal(instruction.scope, instruction.slot, instruction.name),
         );
         break;
-      case "STORE_LOCAL":
+      case "STORE":
         this.storeLocal(
           instruction.scope,
           instruction.slot,
@@ -105,7 +105,7 @@ export class BoqqiVM {
           this.pop(),
         );
         break;
-      case "DECLARE_LOCAL":
+      case "DECLARE":
         this.declareLocal(
           instruction.slot,
           instruction.name,
@@ -121,11 +121,6 @@ export class BoqqiVM {
           instruction.type,
           this.popDomain(instruction.name, instruction.hasDomain),
         );
-        break;
-      case "LOAD":
-      case "STORE":
-      case "DECLARE":
-        this.fail(`命令 ${instruction.op} は現在の VM では使用されません`);
         break;
       case "ADD":
       case "SUB":

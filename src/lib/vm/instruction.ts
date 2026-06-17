@@ -41,19 +41,19 @@ export type Instruction = {
   | { readonly op: "PUSH_STRING"; readonly value: string }
   | { readonly op: "PUSH_BOOL"; readonly value: boolean }
   | {
-      readonly op: "LOAD_LOCAL";
+      readonly op: "LOAD";
       readonly slot: number;
       readonly name: string;
       readonly scope: LocalScope;
     }
   | {
-      readonly op: "STORE_LOCAL";
+      readonly op: "STORE";
       readonly slot: number;
       readonly name: string;
       readonly scope: LocalScope;
     }
   | {
-      readonly op: "DECLARE_LOCAL";
+      readonly op: "DECLARE";
       readonly slot: number;
       readonly name: string;
       readonly type: ValueType;
@@ -62,14 +62,6 @@ export type Instruction = {
   | {
       readonly op: "CHECK_LOCAL";
       readonly slot: number;
-      readonly name: string;
-      readonly type: ValueType;
-      readonly hasDomain: boolean;
-    }
-  | { readonly op: "LOAD"; readonly name: string }
-  | { readonly op: "STORE"; readonly name: string }
-  | {
-      readonly op: "DECLARE";
       readonly name: string;
       readonly type: ValueType;
       readonly hasDomain: boolean;
