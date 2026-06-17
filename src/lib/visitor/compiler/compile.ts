@@ -43,6 +43,7 @@ export function compile(program: ProgramNode): BytecodeProgram {
 }
 
 class BoqqiCompiler implements Visitor<void> {
+  private readonly functionNames = new Set(["print"]);
   private readonly instructions: Instruction[] = [];
   private readonly functions = new Map<string, CompiledFunction>();
   private readonly globalContext: CompileContext = {
@@ -222,9 +223,10 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   visitFunction(node: FunctionNode): void {
-    if (this.functions.has(node.name)) {
+    if (this.functionNames.has(node.name)) {
       throw new Error(`関数 ${node.name} は既に定義済みです`);
     }
+    this.functionNames.add(node.name);
 
     const skipFunctionIndex = this.emit({ op: "JUMP", target: -1 }, node);
     const entryPc = this.instructions.length;
