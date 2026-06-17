@@ -1,32 +1,52 @@
+import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
+import { SourceFrame } from "../diagnostics/sourceLocation.js";
 import {
   BoolValue,
   FloatValue,
   IntValue,
   StringValue,
 } from "../visitor/interpreter/runtimeValue/valuableValue.js";
-import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
-import { SourceFrame } from "../diagnostics/sourceLocation.js";
 import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
-import { DomainSpec, Instruction, ValueType } from "./instruction.js";
+import {
+  BytecodeProgram,
+  DomainSpec,
+  Instruction,
+  LocalScope,
+  ValueType,
+} from "./instruction.js";
 
-interface Var {
-  readonly domain?: DomainSpec;
-  readonly runtimeValue: RuntimeValue;
+interface LocalSlot {
+  name?: string;
+  type?: ValueType;
+  domain?: DomainSpec;
+  runtimeValue?: RuntimeValue;
 }
 
-type Func = (args: RuntimeValue[]) => RuntimeValue;
+interface CallFrame {
+  readonly functionName: string;
+  readonly returnPc: number;
+  readonly locals: LocalSlot[];
+}
+
+type BuiltinFunc = (args: RuntimeValue[]) => RuntimeValue;
 
 export class BoqqiVM {
   private pc = 0;
   private readonly stack: RuntimeValue[] = [];
-  private readonly vars = new Map<string, Var>();
-  private readonly funcs = new Map<string, Func>();
+  private readonly frames: CallFrame[] = [];
+  private readonly funcs = new Map<string, BuiltinFunc>();
   private currentInstruction?: Instruction;
 
   constructor(
-    private readonly instructions: Instruction[],
+    private readonly program: BytecodeProgram,
     private readonly output: (text: string) => void,
   ) {
+    this.frames.push({
+      functionName: "global",
+      returnPc: -1,
+      locals: this.createLocalSlots(program.globalLocalCount),
+    });
+
     this.funcs.set("print", (args: RuntimeValue[]) => {
       for (const arg of args) {
         this.output(`${String(arg.value)}\n`);
@@ -36,8 +56,8 @@ export class BoqqiVM {
   }
 
   run(): RuntimeValue {
-    while (this.pc < this.instructions.length) {
-      const instruction = this.instructions[this.pc];
+    while (this.pc < this.program.instructions.length) {
+      const instruction = this.program.instructions[this.pc];
 
       this.pc += 1;
       this.currentInstruction = instruction;
@@ -72,19 +92,40 @@ export class BoqqiVM {
       case "PUSH_BOOL":
         this.stack.push(new BoolValue(instruction.value));
         break;
-      case "LOAD":
-        this.stack.push(this.load(instruction.name));
+      case "LOAD_LOCAL":
+        this.stack.push(
+          this.loadLocal(instruction.scope, instruction.slot, instruction.name),
+        );
         break;
-      case "STORE":
-        this.store(instruction.name, this.pop());
+      case "STORE_LOCAL":
+        this.storeLocal(
+          instruction.scope,
+          instruction.slot,
+          instruction.name,
+          this.pop(),
+        );
         break;
-      case "DECLARE":
-        this.declare(
+      case "DECLARE_LOCAL":
+        this.declareLocal(
+          instruction.slot,
           instruction.name,
           instruction.type,
           this.pop(),
           this.popDomain(instruction.name, instruction.hasDomain),
         );
+        break;
+      case "CHECK_LOCAL":
+        this.checkLocal(
+          instruction.slot,
+          instruction.name,
+          instruction.type,
+          this.popDomain(instruction.name, instruction.hasDomain),
+        );
+        break;
+      case "LOAD":
+      case "STORE":
+      case "DECLARE":
+        this.fail(`命令 ${instruction.op} は現在の VM では使用されません`);
         break;
       case "ADD":
       case "SUB":
@@ -108,6 +149,9 @@ export class BoqqiVM {
         break;
       case "CALL":
         this.call(instruction.name, instruction.argc);
+        break;
+      case "RETURN":
+        this.returnFromFunction();
         break;
       case "POP":
         this.pop();
@@ -191,13 +235,16 @@ export class BoqqiVM {
     }
   }
 
-  private declare(
+  private declareLocal(
+    slot: number,
     name: string,
     type: ValueType,
     value: RuntimeValue,
     domain: DomainSpec | undefined,
   ): void {
-    if (this.vars.has(name)) {
+    const local = this.localSlot(this.currentFrame(), slot, name);
+
+    if (local.runtimeValue !== undefined) {
       this.fail(`変数 ${name} は既に宣言済みです`);
     }
     if (value.type !== type) {
@@ -207,35 +254,70 @@ export class BoqqiVM {
     }
 
     this.assertWithinDomain(name, value, domain);
-    this.vars.set(name, { domain, runtimeValue: value });
+    local.name = name;
+    local.type = type;
+    local.domain = domain;
+    local.runtimeValue = value;
   }
 
-  private store(name: string, value: RuntimeValue): void {
-    const currentVar = this.vars.get(name);
+  private checkLocal(
+    slot: number,
+    name: string,
+    type: ValueType,
+    domain: DomainSpec | undefined,
+  ): void {
+    const local = this.localSlot(this.currentFrame(), slot, name);
+    const value = local.runtimeValue;
 
-    if (currentVar === undefined) {
-      this.fail(`変数 ${name} は宣言されていません`);
+    if (value === undefined) {
+      this.fail(`変数 ${name} は未定義です`);
     }
-    if (value.type !== currentVar.runtimeValue.type) {
+    if (value.type !== type) {
       this.fail(
-        `変数 ${name} は ${currentVar.runtimeValue.type} 型ですが、${value.type} 型が代入されようとしました`,
+        `変数 ${name} は ${type} 型ですが、${value.type} 型が渡されました`,
       );
     }
 
-    this.assertWithinDomain(name, value, currentVar.domain);
-    this.vars.set(name, {
-      ...currentVar,
-      runtimeValue: value,
-    });
+    this.assertWithinDomain(name, value, domain);
+    local.name = name;
+    local.type = type;
+    local.domain = domain;
   }
 
-  private load(name: string): RuntimeValue {
-    const variable = this.vars.get(name);
-    if (variable === undefined) {
+  private storeLocal(
+    scope: LocalScope,
+    slot: number,
+    name: string,
+    value: RuntimeValue,
+  ): void {
+    const local = this.localSlot(this.frameForScope(scope), slot, name);
+
+    if (local.runtimeValue === undefined || local.type === undefined) {
+      this.fail(`変数 ${name} は宣言されていません`);
+    }
+    if (value.type !== local.type) {
+      this.fail(
+        `変数 ${name} は ${local.type} 型ですが、${value.type} 型が代入されようとしました`,
+      );
+    }
+
+    this.assertWithinDomain(name, value, local.domain);
+    local.runtimeValue = value;
+  }
+
+  private loadLocal(
+    scope: LocalScope,
+    slot: number,
+    name: string,
+  ): RuntimeValue {
+    const local = this.localSlot(this.frameForScope(scope), slot, name);
+    const value = local.runtimeValue;
+
+    if (value === undefined) {
       this.fail(`変数 ${name} は未定義です`);
     }
 
-    return variable.runtimeValue;
+    return value;
   }
 
   private jump(target: number): void {
@@ -256,17 +338,57 @@ export class BoqqiVM {
   }
 
   private call(name: string, argc: number): void {
-    const func = this.funcs.get(name);
-    if (func === undefined) {
-      this.fail(`関数 ${name} は未定義です`);
-    }
-
     const args = this.stack.splice(this.stack.length - argc, argc);
     if (args.length !== argc) {
       this.fail(`関数 ${name} の引数が不足しています`);
     }
 
-    this.stack.push(func(args));
+    const builtin = this.funcs.get(name);
+    if (builtin !== undefined) {
+      this.stack.push(builtin(args));
+      return;
+    }
+
+    const func = this.program.functions.get(name);
+    if (func === undefined) {
+      this.fail(`関数 ${name} は未定義です`);
+    }
+    if (func.arity !== argc) {
+      this.fail(
+        `関数 ${name} は ${String(func.arity)} 個の引数を取りますが、${String(argc)} 個渡されました`,
+      );
+    }
+
+    const locals = this.createLocalSlots(func.localCount);
+    for (const [index, param] of func.params.entries()) {
+      locals[param.slot] = {
+        name: param.name,
+        type: param.type,
+        runtimeValue: args[index],
+      };
+    }
+
+    this.frames.push({
+      functionName: name,
+      returnPc: this.pc,
+      locals,
+    });
+    this.jump(func.entryPc);
+  }
+
+  private returnFromFunction(): void {
+    if (this.frames.length <= 1) {
+      this.fail("return 文は関数の中でのみ使用できます");
+    }
+
+    const value = this.pop();
+    const frame = this.frames.pop();
+    if (frame === undefined) {
+      this.fail("関数フレームが存在しません");
+    }
+
+    this.pc = frame.returnPc;
+    this.stack.push(value);
   }
 
   private pop(): RuntimeValue {
@@ -335,10 +457,33 @@ export class BoqqiVM {
     if (
       !Number.isInteger(target) ||
       target < 0 ||
-      target > this.instructions.length
+      target > this.program.instructions.length
     ) {
       this.fail(`ジャンプ先 ${String(target)} は不正です`);
     }
+  }
+
+  private frameForScope(scope: LocalScope): CallFrame {
+    if (scope === "global") {
+      return this.frames[0];
+    }
+
+    return this.currentFrame();
+  }
+
+  private currentFrame(): CallFrame {
+    return this.frames[this.frames.length - 1];
+  }
+
+  private localSlot(frame: CallFrame, slot: number, name: string): LocalSlot {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= frame.locals.length) {
+      this.fail(`変数 ${name} の slot ${String(slot)} は不正です`);
+    }
+    return frame.locals[slot];
+  }
+
+  private createLocalSlots(count: number): LocalSlot[] {
+    return Array.from({ length: count }, () => ({}));
   }
 
   private fail(message: string): never {

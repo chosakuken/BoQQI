@@ -5,26 +5,61 @@ import { CallNode } from "../../ast/nodes/call.js";
 import { CompareNode } from "../../ast/nodes/compare.js";
 import { DeclareNode } from "../../ast/nodes/declare.js";
 import { FloatNode } from "../../ast/nodes/float.js";
+import { FunctionNode, ParamNode } from "../../ast/nodes/function.js";
 import { IfNode } from "../../ast/nodes/if.js";
 import { IntNode } from "../../ast/nodes/int.js";
+import { AstNode } from "../../ast/nodes/node.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
+import { ReturnNode } from "../../ast/nodes/return.js";
 import { StringNode } from "../../ast/nodes/string.js";
 import { VarNode } from "../../ast/nodes/var.js";
+import {
+  BytecodeProgram,
+  CompiledFunction,
+  Instruction,
+  LocalScope,
+  ParamInfo,
+  ValueType,
+} from "../../vm/instruction.js";
 import { Visitor } from "../visitor.js";
-import { Instruction, ValueType } from "../../vm/instruction.js";
-import { AstNode } from "../../ast/nodes/node.js";
 
-export function compile(program: ProgramNode): Instruction[] {
+interface LocalSymbol {
+  readonly name: string;
+  readonly slot: number;
+  readonly type: ValueType;
+}
+
+interface CompileContext {
+  readonly name: string;
+  readonly locals: Map<string, LocalSymbol>;
+  localCount: number;
+  readonly isFunction: boolean;
+}
+
+export function compile(program: ProgramNode): BytecodeProgram {
   const compiler = new BoqqiCompiler();
   return compiler.compile(program);
 }
 
 class BoqqiCompiler implements Visitor<void> {
   private readonly instructions: Instruction[] = [];
+  private readonly functions = new Map<string, CompiledFunction>();
+  private readonly globalContext: CompileContext = {
+    name: "global",
+    locals: new Map<string, LocalSymbol>(),
+    localCount: 0,
+    isFunction: false,
+  };
+  private context: CompileContext = this.globalContext;
 
-  compile(program: ProgramNode): Instruction[] {
+  compile(program: ProgramNode): BytecodeProgram {
     program.accept(this);
-    return this.instructions;
+
+    return {
+      instructions: this.instructions,
+      functions: this.functions,
+      globalLocalCount: this.globalContext.localCount,
+    };
   }
 
   visitProgram(node: ProgramNode): void {
@@ -104,12 +139,22 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   visitAssign(node: AssignNode): void {
+    const resolved = this.resolveLocal(node.name);
     node.expr.accept(this);
-    this.emit({ op: "STORE", name: node.name }, node);
+    this.emit(
+      {
+        op: "STORE_LOCAL",
+        slot: resolved.symbol.slot,
+        name: resolved.symbol.name,
+        scope: resolved.scope,
+      },
+      node,
+    );
   }
 
   visitDeclare(node: DeclareNode): void {
     const type = this.valueType(node.type);
+    const symbol = this.allocateLocal(node.name, type);
 
     if (node.domain !== undefined) {
       node.domain.max.accept(this);
@@ -124,8 +169,9 @@ class BoqqiCompiler implements Visitor<void> {
 
     this.emit(
       {
-        op: "DECLARE",
-        name: node.name,
+        op: "DECLARE_LOCAL",
+        slot: symbol.slot,
+        name: symbol.name,
         type,
         hasDomain: node.domain !== undefined,
       },
@@ -134,7 +180,16 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   visitVar(node: VarNode): void {
-    this.emit({ op: "LOAD", name: node.name }, node);
+    const resolved = this.resolveLocal(node.name);
+    this.emit(
+      {
+        op: "LOAD_LOCAL",
+        slot: resolved.symbol.slot,
+        name: resolved.symbol.name,
+        scope: resolved.scope,
+      },
+      node,
+    );
   }
 
   visitIf(node: IfNode): void {
@@ -164,6 +219,74 @@ class BoqqiCompiler implements Visitor<void> {
     }
 
     this.patchJump(jumpToEndIndex, this.instructions.length);
+  }
+
+  visitFunction(node: FunctionNode): void {
+    if (this.functions.has(node.name)) {
+      throw new Error(`関数 ${node.name} は既に定義済みです`);
+    }
+
+    const skipFunctionIndex = this.emit({ op: "JUMP", target: -1 }, node);
+    const entryPc = this.instructions.length;
+    const previousContext = this.context;
+    const functionContext: CompileContext = {
+      name: node.name,
+      locals: new Map<string, LocalSymbol>(),
+      localCount: 0,
+      isFunction: true,
+    };
+
+    this.context = functionContext;
+    const params = this.allocateParams(node.params);
+
+    for (const param of node.params) {
+      const symbol = this.context.locals.get(param.name);
+      if (symbol === undefined) {
+        throw new Error(`引数 ${param.name} の slot 割り当てに失敗しました`);
+      }
+
+      if (param.domain !== undefined) {
+        param.domain.max.accept(this);
+        param.domain.min.accept(this);
+      }
+
+      this.emit(
+        {
+          op: "CHECK_LOCAL",
+          slot: symbol.slot,
+          name: symbol.name,
+          type: symbol.type,
+          hasDomain: param.domain !== undefined,
+        },
+        node,
+      );
+    }
+
+    for (const statement of node.body) {
+      statement.accept(this);
+    }
+
+    this.emit({ op: "PUSH_INT", value: 0 }, node);
+    this.emit({ op: "RETURN" }, node);
+
+    this.functions.set(node.name, {
+      name: node.name,
+      entryPc,
+      arity: node.params.length,
+      localCount: functionContext.localCount,
+      params,
+    });
+
+    this.context = previousContext;
+    this.patchJump(skipFunctionIndex, this.instructions.length);
+  }
+
+  visitReturn(node: ReturnNode): void {
+    if (!this.context.isFunction) {
+      throw new Error("return 文は関数の中でのみ使用できます");
+    }
+    node.expr.accept(this);
+    this.emit({ op: "RETURN" }, node);
   }
 
   private emit(instruction: Instruction, node?: AstNode): number {
@@ -201,6 +324,53 @@ class BoqqiCompiler implements Visitor<void> {
         this.emit({ op: "PUSH_BOOL", value: false }, node);
         break;
     }
+  }
+
+  private allocateParams(params: ParamNode[]): ParamInfo[] {
+    return params.map((param) => {
+      const type = this.valueType(param.type);
+      const symbol = this.allocateLocal(param.name, type);
+
+      return {
+        name: param.name,
+        slot: symbol.slot,
+        type,
+        hasDomain: param.domain !== undefined,
+      };
+    });
+  }
+
+  private allocateLocal(name: string, type: ValueType): LocalSymbol {
+    if (this.context.locals.has(name)) {
+      throw new Error(`変数 ${name} は既に宣言済みです`);
+    }
+
+    const symbol = {
+      name,
+      slot: this.context.localCount,
+      type,
+    };
+
+    this.context.locals.set(name, symbol);
+    this.context.localCount += 1;
+    return symbol;
+  }
+
+  private resolveLocal(name: string): {
+    readonly symbol: LocalSymbol;
+    readonly scope: LocalScope;
+  } {
+    const local = this.context.locals.get(name);
+    if (local !== undefined) {
+      return { symbol: local, scope: "local" };
+    }
+
+    const global = this.globalContext.locals.get(name);
+    if (global !== undefined) {
+      return { symbol: global, scope: "global" };
+    }
+
+    throw new Error(`変数 ${name} は未定義です`);
   }
 
   private valueType(type: string): ValueType {
