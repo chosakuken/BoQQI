@@ -49,7 +49,6 @@ export function compile(program: ProgramNode): BytecodeProgram {
 }
 
 class BoqqiCompiler implements Visitor<void> {
-  private readonly functionNames = new Set(["print"]);
   private readonly instructions: Instruction[] = [];
   private readonly functions = new Map<string, CompiledFunction>();
   private readonly globalContext: CompileContext = {
@@ -248,11 +247,6 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   visitFunction(node: FunctionNode): void {
-    if (this.functionNames.has(node.name)) {
-      throw new Error(`関数 ${node.name} は既に定義済みです`);
-    }
-    this.functionNames.add(node.name);
-
     const skipFunctionIndex = this.emit({ op: "JUMP", target: -1 }, node);
     const entryPc = this.instructions.length;
     const previousContext = this.context;
@@ -270,7 +264,9 @@ class BoqqiCompiler implements Visitor<void> {
     for (const param of node.params) {
       const symbol = this.context.locals.get(param.name);
       if (symbol === undefined) {
-        throw new Error(`引数 ${param.name} の slot 割り当てに失敗しました`);
+        throw new Error(
+          `Internal compiler error: unallocated parameter ${param.name}`,
+        );
       }
 
       if (param.domain !== undefined) {
@@ -313,11 +309,9 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   visitReturn(node: ReturnNode): void {
-    if (!this.context.isFunction) {
-      throw new Error("return 文は関数の中でのみ使用できます");
-    }
-    if (this.context.returnType === undefined) {
-      throw new Error("戻り値の型情報が見つかりません");
+    const returnType = this.context.returnType;
+    if (returnType === undefined) {
+      throw new Error("Internal compiler error: missing return type");
     }
 
     if (node.expr === undefined) {
@@ -325,7 +319,7 @@ class BoqqiCompiler implements Visitor<void> {
     } else {
       node.expr.accept(this);
     }
-    this.emitReturn(this.context.returnType, node);
+    this.emitReturn(returnType, node);
   }
 
   private emit(instruction: Instruction, node?: AstNode): number {
@@ -399,10 +393,6 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   private allocateLocal(name: string, type: ValueType): LocalSymbol {
-    if (this.context.locals.has(name)) {
-      throw new Error(`変数 ${name} は既に宣言済みです`);
-    }
-
     const symbol = {
       name,
       slot: this.context.localCount,
@@ -428,7 +418,7 @@ class BoqqiCompiler implements Visitor<void> {
       return { symbol: global, scope: "global" };
     }
 
-    throw new Error(`変数 ${name} は未定義です`);
+    throw new Error(`Internal compiler error: unresolved variable ${name}`);
   }
 
   private valueType(type: string): ValueType {

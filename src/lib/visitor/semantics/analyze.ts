@@ -45,7 +45,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
   constructor() {
     this.functions.set("print", {
       name: "print",
-      params: [],
+      params: "variadic",
       returnType: "int",
     });
   }
@@ -125,15 +125,19 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
       if (func === undefined) {
         this.fail(`関数 ${node.name} は未定義です`);
       }
-      if (func.params.length !== 0 && node.args.length !== func.params.length) {
+
+      const argTypes = node.args.map((arg) => arg.accept(this));
+      if (func.params === "variadic") {
+        if (argTypes.includes("void")) {
+          this.fail(`関数 ${node.name} に void 型の値は渡せません`);
+        }
+        return func.returnType;
+      }
+
+      if (node.args.length !== func.params.length) {
         this.fail(
           `関数 ${node.name} は ${String(func.params.length)} 個の引数を取りますが、${String(node.args.length)} 個渡されました`,
         );
-      }
-
-      const argTypes = node.args.map((arg) => arg.accept(this));
-      if (func.params.length === 0) {
-        return func.returnType;
       }
 
       for (const [index, argType] of argTypes.entries()) {
@@ -286,6 +290,12 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
         for (const statement of node.body) {
           statement.accept(this);
         }
+
+        if (returnType !== "void" && !this.hasGuaranteedReturn(node.body)) {
+          this.fail(
+            `関数 ${node.name} は ${returnType} 型の値を返す必要があります`,
+          );
+        }
       } finally {
         this.scopes.pop();
         this.currentReturnType = previousReturnType;
@@ -329,6 +339,24 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
     }
 
     return symbols;
+  }
+
+  private hasGuaranteedReturn(statements: readonly AstNode[]): boolean {
+    for (const statement of statements) {
+      if (statement instanceof ReturnNode) {
+        return true;
+      }
+      if (
+        statement instanceof IfNode &&
+        statement.falseStatement !== undefined &&
+        this.hasGuaranteedReturn(statement.trueStatement) &&
+        this.hasGuaranteedReturn(statement.falseStatement)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private analyzeDomain(domain: DomainNode, owner: string): void {

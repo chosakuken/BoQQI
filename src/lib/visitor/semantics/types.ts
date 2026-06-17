@@ -9,7 +9,7 @@ export interface VariableSymbol {
 
 export interface FunctionSymbol {
   readonly name: string;
-  readonly params: readonly VariableSymbol[];
+  readonly params: readonly VariableSymbol[] | "variadic";
   readonly returnType: SemanticType;
 }
 
