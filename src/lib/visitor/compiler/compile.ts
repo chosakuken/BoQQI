@@ -18,6 +18,7 @@ import { ReturnNode } from "../../ast/nodes/return.js";
 import { StatementNode } from "../../ast/nodes/statement.js";
 import { StringNode } from "../../ast/nodes/string.js";
 import { VarNode } from "../../ast/nodes/var.js";
+import { WhileNode } from "../../ast/nodes/while.js";
 import {
   BytecodeProgram,
   CompiledFunction,
@@ -225,6 +226,25 @@ class BoqqiCompiler implements Visitor<void> {
     }
 
     this.patchJump(jumpToEndIndex, this.instructions.length);
+  }
+
+  visitWhile(node: WhileNode): void {
+    const loopStartIndex = this.instructions.length;
+    node.cond.accept(this);
+    const jumpIfFalseIndex = this.emit(
+      {
+        op: "JUMP_IF_FALSE",
+        target: -1,
+      },
+      node,
+    );
+
+    for (const statement of node.body) {
+      this.compileStatement(statement);
+    }
+
+    this.emit({ op: "JUMP", target: loopStartIndex }, node);
+    this.patchJump(jumpIfFalseIndex, this.instructions.length);
   }
 
   visitFunction(node: FunctionNode): void {

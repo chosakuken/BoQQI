@@ -328,7 +328,7 @@ export class BoqqiVM {
     const cond = this.pop();
 
     if (typeof cond.value !== "boolean") {
-      this.fail("if 文の条件式には真偽値を入力しなければなりません");
+      this.fail("条件式には真偽値を入力しなければなりません");
     }
 
     if (!cond.value) {

@@ -12,6 +12,7 @@ import { ProgramNode } from "../ast/nodes/program.js";
 import { ReturnNode } from "../ast/nodes/return.js";
 import { StringNode } from "../ast/nodes/string.js";
 import { VarNode } from "../ast/nodes/var.js";
+import { WhileNode } from "../ast/nodes/while.js";
 
 // visitor の 雛形を明記
 export interface Visitor<T> {
@@ -27,6 +28,7 @@ export interface Visitor<T> {
   visitDeclare(node: DeclareNode): T;
   visitVar(node: VarNode): T;
   visitIf(node: IfNode): T;
+  visitWhile(node: WhileNode): T;
   visitFunction(node: FunctionNode): T;
   visitReturn(node: ReturnNode): T;
 }

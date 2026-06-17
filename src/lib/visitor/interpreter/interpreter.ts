@@ -27,6 +27,7 @@ import { AstNode } from "../../ast/nodes/node.js";
 import { BoqqiRuntimeError } from "../../diagnostics/runtimeError.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
+import { WhileNode } from "../../ast/nodes/while.js";
 
 interface Var {
   domain?: {
@@ -281,6 +282,18 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       return new IntValue(0); // 正常動作として 0 を返す
     });
   }
+  visitWhile(node: WhileNode): RuntimeValue {
+    return this.withFrame(node, "while", () => {
+      let shouldContinue = this.evalWhileCondition(node);
+      while (shouldContinue) {
+        for (const statement of node.body) {
+          statement.accept(this);
+        }
+        shouldContinue = this.evalWhileCondition(node);
+      }
+      return new IntValue(0);
+    });
+  }
   visitFunction(node: FunctionNode): RuntimeValue {
     return this.withFrame(node, `function ${node.name}`, () => {
       if (this.funcs.has(node.name)) {
@@ -321,6 +334,13 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       return new IntValue(Math.floor(value));
     }
     return new FloatValue(value);
+  }
+  private evalWhileCondition(node: WhileNode): boolean {
+    const cond = node.cond.accept(this);
+    if (typeof cond.value !== "boolean") {
+      this.fail("while 文の条件式には真偽値を入力しなければなりません");
+    }
+    return cond.value;
   }
   private defaultValue(type: string): RuntimeValue {
     switch (type) {
