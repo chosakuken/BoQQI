@@ -5,6 +5,10 @@ import { ErrorNode, ParseTreeListener, ParserRuleContext, TerminalNode } from "a
 import { ProgramContext } from "./BoQQIParser.js";
 import { StatementContext } from "./BoQQIParser.js";
 import { IfContext } from "./BoQQIParser.js";
+import { FunctionContext } from "./BoQQIParser.js";
+import { ParamsContext } from "./BoQQIParser.js";
+import { ParamContext } from "./BoQQIParser.js";
+import { ReturnContext } from "./BoQQIParser.js";
 import { CallContext } from "./BoQQIParser.js";
 import { ArgsContext } from "./BoQQIParser.js";
 import { DeclareContext } from "./BoQQIParser.js";
@@ -61,6 +65,46 @@ export class BoQQIParserListener implements ParseTreeListener {
      * @param ctx the parse tree
      */
     exitIf?: (ctx: IfContext) => void;
+    /**
+     * Enter a parse tree produced by `BoQQIParser.function`.
+     * @param ctx the parse tree
+     */
+    enterFunction?: (ctx: FunctionContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.function`.
+     * @param ctx the parse tree
+     */
+    exitFunction?: (ctx: FunctionContext) => void;
+    /**
+     * Enter a parse tree produced by `BoQQIParser.params`.
+     * @param ctx the parse tree
+     */
+    enterParams?: (ctx: ParamsContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.params`.
+     * @param ctx the parse tree
+     */
+    exitParams?: (ctx: ParamsContext) => void;
+    /**
+     * Enter a parse tree produced by `BoQQIParser.param`.
+     * @param ctx the parse tree
+     */
+    enterParam?: (ctx: ParamContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.param`.
+     * @param ctx the parse tree
+     */
+    exitParam?: (ctx: ParamContext) => void;
+    /**
+     * Enter a parse tree produced by `BoQQIParser.return`.
+     * @param ctx the parse tree
+     */
+    enterReturn?: (ctx: ReturnContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.return`.
+     * @param ctx the parse tree
+     */
+    exitReturn?: (ctx: ReturnContext) => void;
     /**
      * Enter a parse tree produced by `BoQQIParser.call`.
      * @param ctx the parse tree

@@ -6,6 +6,8 @@ TRUE : 'true' ;
 FALSE : 'false' ;
 MAX : 'max' ;
 MIN : 'min' ;
+FUNC : 'function' ;
+RETURN : 'return' ;
 
 TYPE_INT : 'int' ;
 TYPE_FLOAT : 'float' ;

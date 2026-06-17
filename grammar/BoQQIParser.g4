@@ -10,13 +10,33 @@ program
 
 statement
     : if
+    | function
     | call SEMI
     | declare SEMI
     | assign SEMI
+    | return
     ;
 
 if
     : IF LPAREN expr RPAREN LBRACE statement* RBRACE (ELSE LBRACE statement* RBRACE)?
+    ;
+
+function
+    : FUNC IDENT LPAREN params RPAREN LBRACE statement* RBRACE
+    ;
+
+params
+    : param (COMMA param)*
+    |
+    ;
+
+param
+    : numericType domain IDENT
+    | nonNumericType IDENT
+    ;
+
+return
+    : RETURN expr SEMI
     ;
 
 call
