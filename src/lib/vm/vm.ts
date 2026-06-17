@@ -54,9 +54,6 @@ export class BoqqiVM {
 
     this.funcs.set("print", (args: RuntimeValue[]) => {
       for (const arg of args) {
-        if (arg.type === "void") {
-          this.fail("void 型の値は出力できません");
-        }
         this.output(`${String(arg.value)}\n`);
       }
       return new IntValue(0);
@@ -168,20 +165,15 @@ export class BoqqiVM {
   private executeBinary(op: "ADD" | "SUB" | "MUL" | "DIV"): void {
     const right = this.pop();
     const left = this.pop();
-
-    if (typeof left.value !== "number") {
-      this.fail("式の左辺には数値を入力しなければなりません");
-    }
-    if (typeof right.value !== "number") {
-      this.fail("式の右辺には数値を入力しなければなりません");
-    }
+    const leftValue = Number(left.value);
+    const rightValue = Number(right.value);
 
     switch (op) {
       case "ADD":
         this.stack.push(
           this.numberToRuntimeValue(
             this.numericResultType(left, right),
-            left.value + right.value,
+            leftValue + rightValue,
           ),
         );
         break;
@@ -189,7 +181,7 @@ export class BoqqiVM {
         this.stack.push(
           this.numberToRuntimeValue(
             this.numericResultType(left, right),
-            left.value - right.value,
+            leftValue - rightValue,
           ),
         );
         break;
@@ -197,18 +189,18 @@ export class BoqqiVM {
         this.stack.push(
           this.numberToRuntimeValue(
             this.numericResultType(left, right),
-            left.value * right.value,
+            leftValue * rightValue,
           ),
         );
         break;
       case "DIV":
-        if (right.value === 0) {
+        if (rightValue === 0) {
           this.fail("0 除算が検出されました");
         }
         this.stack.push(
           this.numberToRuntimeValue(
             this.numericResultType(left, right),
-            left.value / right.value,
+            leftValue / rightValue,
           ),
         );
         break;
@@ -218,29 +210,27 @@ export class BoqqiVM {
   private executeCompare(op: "EQ" | "NE" | "GT" | "LT" | "GE" | "LE"): void {
     const right = this.pop();
     const left = this.pop();
-
-    if (left.value === undefined || right.value === undefined) {
-      this.fail("void 型の値は比較できません");
-    }
+    const leftValue = left.value ?? false;
+    const rightValue = right.value ?? false;
 
     switch (op) {
       case "EQ":
-        this.stack.push(new BoolValue(left.value == right.value));
+        this.stack.push(new BoolValue(leftValue == rightValue));
         break;
       case "NE":
-        this.stack.push(new BoolValue(left.value != right.value));
+        this.stack.push(new BoolValue(leftValue != rightValue));
         break;
       case "GT":
-        this.stack.push(new BoolValue(left.value > right.value));
+        this.stack.push(new BoolValue(leftValue > rightValue));
         break;
       case "LT":
-        this.stack.push(new BoolValue(left.value < right.value));
+        this.stack.push(new BoolValue(leftValue < rightValue));
         break;
       case "GE":
-        this.stack.push(new BoolValue(left.value >= right.value));
+        this.stack.push(new BoolValue(leftValue >= rightValue));
         break;
       case "LE":
-        this.stack.push(new BoolValue(left.value <= right.value));
+        this.stack.push(new BoolValue(leftValue <= rightValue));
         break;
     }
   }
@@ -253,15 +243,6 @@ export class BoqqiVM {
     domain: DomainSpec | undefined,
   ): void {
     const local = this.localSlot(this.currentFrame(), slot, name);
-
-    if (local.runtimeValue !== undefined) {
-      this.fail(`変数 ${name} は既に宣言済みです`);
-    }
-    if (value.type !== type) {
-      this.fail(
-        `変数 ${name} は ${type} 型ですが、${value.type} 型で初期化されようとしました`,
-      );
-    }
 
     this.assertWithinDomain(name, value, domain);
     local.name = name;
@@ -277,16 +258,10 @@ export class BoqqiVM {
     domain: DomainSpec | undefined,
   ): void {
     const local = this.localSlot(this.currentFrame(), slot, name);
-    const value = local.runtimeValue;
-
-    if (value === undefined) {
-      this.fail(`変数 ${name} は未定義です`);
-    }
-    if (value.type !== type) {
-      this.fail(
-        `変数 ${name} は ${type} 型ですが、${value.type} 型が渡されました`,
-      );
-    }
+    const value = this.assumeDefined(
+      local.runtimeValue,
+      `Internal VM error: uninitialized local ${name}`,
+    );
 
     this.assertWithinDomain(name, value, domain);
     local.name = name;
@@ -302,15 +277,6 @@ export class BoqqiVM {
   ): void {
     const local = this.localSlot(this.frameForScope(scope), slot, name);
 
-    if (local.runtimeValue === undefined || local.type === undefined) {
-      this.fail(`変数 ${name} は宣言されていません`);
-    }
-    if (value.type !== local.type) {
-      this.fail(
-        `変数 ${name} は ${local.type} 型ですが、${value.type} 型が代入されようとしました`,
-      );
-    }
-
     this.assertWithinDomain(name, value, local.domain);
     local.runtimeValue = value;
   }
@@ -321,13 +287,10 @@ export class BoqqiVM {
     name: string,
   ): RuntimeValue {
     const local = this.localSlot(this.frameForScope(scope), slot, name);
-    const value = local.runtimeValue;
-
-    if (value === undefined) {
-      this.fail(`変数 ${name} は未定義です`);
-    }
-
-    return value;
+    return this.assumeDefined(
+      local.runtimeValue,
+      `Internal VM error: uninitialized local ${name}`,
+    );
   }
 
   private jump(target: number): void {
@@ -337,12 +300,7 @@ export class BoqqiVM {
 
   private jumpIfFalse(target: number): void {
     const cond = this.pop();
-
-    if (typeof cond.value !== "boolean") {
-      this.fail("条件式には真偽値を入力しなければなりません");
-    }
-
-    if (!cond.value) {
+    if (cond.value !== true) {
       this.jump(target);
     }
   }
@@ -359,15 +317,10 @@ export class BoqqiVM {
       return;
     }
 
-    const func = this.program.functions.get(name);
-    if (func === undefined) {
-      this.fail(`関数 ${name} は未定義です`);
-    }
-    if (func.arity !== argc) {
-      this.fail(
-        `関数 ${name} は ${String(func.arity)} 個の引数を取りますが、${String(argc)} 個渡されました`,
-      );
-    }
+    const func = this.assumeDefined(
+      this.program.functions.get(name),
+      `Internal VM error: unresolved function ${name}`,
+    );
 
     const locals = this.createLocalSlots(func.localCount);
     for (const [index, param] of func.params.entries()) {
@@ -389,21 +342,12 @@ export class BoqqiVM {
   }
 
   private returnFromFunction(): void {
-    if (this.frames.length <= 1) {
-      this.fail("return 文は関数の中でのみ使用できます");
-    }
-
     const currentFrame = this.currentFrame();
     const domain = this.popDomain(
       currentFrame.functionName,
       currentFrame.hasReturnDomain,
     );
     const value = this.pop();
-    if (value.type !== currentFrame.returnType) {
-      this.fail(
-        `関数 ${currentFrame.functionName} は ${currentFrame.returnType} 型を返す必要がありますが、${value.type} 型が返されました`,
-      );
-    }
     this.assertReturnWithinDomain(currentFrame.functionName, value, domain);
 
     const frame = this.frames.pop();
@@ -432,13 +376,9 @@ export class BoqqiVM {
     const min = this.pop();
     const max = this.pop();
 
-    if (typeof max.value !== "number" || typeof min.value !== "number") {
-      this.fail(`変数 ${name} の定義域には数値を指定してください`);
-    }
-
     return {
-      max: max.value,
-      min: min.value,
+      max: max.value as number,
+      min: min.value as number,
     };
   }
 
@@ -467,12 +407,10 @@ export class BoqqiVM {
     if (domain === undefined) {
       return;
     }
-    if (typeof value.value !== "number") {
-      this.fail(`変数 ${name} の定義域チェックには数値が必要です`);
-    }
-    if (value.value < domain.min || value.value > domain.max) {
+    const numericValue = value.value as number;
+    if (numericValue < domain.min || numericValue > domain.max) {
       this.fail(
-        `変数 ${name} に定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が代入されようとしました`,
+        `変数 ${name} に定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(numericValue)} が代入されようとしました`,
       );
     }
   }
@@ -485,12 +423,10 @@ export class BoqqiVM {
     if (domain === undefined) {
       return;
     }
-    if (typeof value.value !== "number") {
-      this.fail(`関数 ${name} の戻り値の定義域チェックには数値が必要です`);
-    }
-    if (value.value < domain.min || value.value > domain.max) {
+    const numericValue = value.value as number;
+    if (numericValue < domain.min || numericValue > domain.max) {
       this.fail(
-        `関数 ${name} の戻り値として定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(value.value)} が返されました`,
+        `関数 ${name} の戻り値として定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(numericValue)} が返されました`,
       );
     }
   }
@@ -515,6 +451,13 @@ export class BoqqiVM {
 
   private currentFrame(): CallFrame {
     return this.frames[this.frames.length - 1];
+  }
+
+  private assumeDefined<T>(value: T | undefined, message: string): T {
+    if (value === undefined) {
+      this.fail(message);
+    }
+    return value;
   }
 
   private localSlot(frame: CallFrame, slot: number, name: string): LocalSlot {

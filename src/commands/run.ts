@@ -6,7 +6,12 @@ import {
   BoqqiRuntimeError,
   formatRuntimeError,
 } from "../lib/diagnostics/runtimeError.js";
+import {
+  BoqqiSemanticError,
+  formatSemanticError,
+} from "../lib/diagnostics/semanticError.js";
 import { compile } from "../lib/visitor/compiler/compile.js";
+import { semanticAnalyze } from "../lib/visitor/semantics/analyze.js";
 import { BoqqiVM } from "../lib/vm/vm.js";
 
 export function createRunCommand(): Command {
@@ -17,12 +22,18 @@ export function createRunCommand(): Command {
       const source = await readFile(file, "utf-8");
       try {
         const ast = parseToAst(source);
+        semanticAnalyze(ast);
         const bytecode = compile(ast);
         const vm = new BoqqiVM(bytecode, (txt: string) => {
           process.stdout.write(txt);
         });
         vm.run();
       } catch (error) {
+        if (error instanceof BoqqiSemanticError) {
+          process.stderr.write(`${formatSemanticError(error, source, file)}\n`);
+          process.exitCode = 1;
+          return;
+        }
         if (error instanceof BoqqiRuntimeError) {
           process.stderr.write(`${formatRuntimeError(error, source, file)}\n`);
           process.exitCode = 1;
