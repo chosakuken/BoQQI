@@ -6,6 +6,7 @@ import {
   FloatValue,
   IntValue,
   StringValue,
+  VoidValue,
 } from "./runtimeValue/valuableValue.js";
 import { BinaryNode } from "../../ast/nodes/binary.js";
 import { BoolNode } from "../../ast/nodes/bool.js";
@@ -78,6 +79,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       kind: "builtin",
       call: (args: RuntimeValue[]) => {
         for (const arg of args) {
+          if (arg.type === "void") {
+            this.fail("void 型の値は出力できません");
+          }
           this.output(`${String(arg.value)}\n`);
         }
         return new IntValue(0); // 正常動作として 0 を返す
@@ -139,6 +143,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     return this.withFrame(node, `compare '${node.operator}'`, () => {
       const left = node.left.accept(this);
       const right = node.right.accept(this);
+      if (left.value === undefined || right.value === undefined) {
+        this.fail("void 型の値は比較できません");
+      }
       switch (node.operator) {
         case "==":
           return new BoolValue(left.value == right.value);
@@ -319,7 +326,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.fail("return 文は関数の中でのみ使用できます");
       }
       // 例外として中断する形式
-      throw new ReturnSignal(node.expr.accept(this));
+      throw new ReturnSignal(
+        node.expr === undefined ? new VoidValue() : node.expr.accept(this),
+      );
     });
   }
   // ヘルパー関数
@@ -438,8 +447,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       for (const statement of func.body) {
         statement.accept(this);
       }
-      // voidはないので、正常動作であれば 0 を返す
-      return this.assertReturnValue(func, new IntValue(0));
+      return this.assertReturnValue(func, new VoidValue());
     } catch (error) {
       if (error instanceof ReturnSignal) {
         return this.assertReturnValue(func, error.value);

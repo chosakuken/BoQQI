@@ -22,29 +22,30 @@ export class BoQQIParser extends antlr.Parser {
     public static readonly TYPE_FLOAT = 11;
     public static readonly TYPE_STRING = 12;
     public static readonly TYPE_BOOL = 13;
-    public static readonly PLUS = 14;
-    public static readonly MINUS = 15;
-    public static readonly MUL = 16;
-    public static readonly DIV = 17;
-    public static readonly EQUAL = 18;
-    public static readonly EQ = 19;
-    public static readonly NE = 20;
-    public static readonly GE = 21;
-    public static readonly LE = 22;
-    public static readonly GT = 23;
-    public static readonly LT = 24;
-    public static readonly LPAREN = 25;
-    public static readonly RPAREN = 26;
-    public static readonly LBRACE = 27;
-    public static readonly RBRACE = 28;
-    public static readonly COMMA = 29;
-    public static readonly COLON = 30;
-    public static readonly SEMI = 31;
-    public static readonly FLOAT = 32;
-    public static readonly INT = 33;
-    public static readonly STRING = 34;
-    public static readonly IDENT = 35;
-    public static readonly WS = 36;
+    public static readonly TYPE_VOID = 14;
+    public static readonly PLUS = 15;
+    public static readonly MINUS = 16;
+    public static readonly MUL = 17;
+    public static readonly DIV = 18;
+    public static readonly EQUAL = 19;
+    public static readonly EQ = 20;
+    public static readonly NE = 21;
+    public static readonly GE = 22;
+    public static readonly LE = 23;
+    public static readonly GT = 24;
+    public static readonly LT = 25;
+    public static readonly LPAREN = 26;
+    public static readonly RPAREN = 27;
+    public static readonly LBRACE = 28;
+    public static readonly RBRACE = 29;
+    public static readonly COMMA = 30;
+    public static readonly COLON = 31;
+    public static readonly SEMI = 32;
+    public static readonly FLOAT = 33;
+    public static readonly INT = 34;
+    public static readonly STRING = 35;
+    public static readonly IDENT = 36;
+    public static readonly WS = 37;
     public static readonly RULE_program = 0;
     public static readonly RULE_statement = 1;
     public static readonly RULE_if = 2;
@@ -68,17 +69,17 @@ export class BoQQIParser extends antlr.Parser {
     public static readonly literalNames = [
         null, "'if'", "'else'", "'while'", "'true'", "'false'", "'max'", 
         "'min'", "'function'", "'return'", "'int'", "'float'", "'string'", 
-        "'bool'", "'+'", "'-'", "'*'", "'/'", "'='", "'=='", "'!='", "'>='", 
-        "'<='", "'>'", "'<'", "'('", "')'", "'{'", "'}'", "','", "':'", 
-        "';'"
+        "'bool'", "'void'", "'+'", "'-'", "'*'", "'/'", "'='", "'=='", "'!='", 
+        "'>='", "'<='", "'>'", "'<'", "'('", "')'", "'{'", "'}'", "','", 
+        "':'", "';'"
     ];
 
     public static readonly symbolicNames = [
         null, "IF", "ELSE", "WHILE", "TRUE", "FALSE", "MAX", "MIN", "FUNC", 
         "RETURN", "TYPE_INT", "TYPE_FLOAT", "TYPE_STRING", "TYPE_BOOL", 
-        "PLUS", "MINUS", "MUL", "DIV", "EQUAL", "EQ", "NE", "GE", "LE", 
-        "GT", "LT", "LPAREN", "RPAREN", "LBRACE", "RBRACE", "COMMA", "COLON", 
-        "SEMI", "FLOAT", "INT", "STRING", "IDENT", "WS"
+        "TYPE_VOID", "PLUS", "MINUS", "MUL", "DIV", "EQUAL", "EQ", "NE", 
+        "GE", "LE", "GT", "LT", "LPAREN", "RPAREN", "LBRACE", "RBRACE", 
+        "COMMA", "COLON", "SEMI", "FLOAT", "INT", "STRING", "IDENT", "WS"
     ];
     public static readonly ruleNames = [
         "program", "statement", "if", "while", "function", "returnType", 
@@ -110,7 +111,7 @@ export class BoQQIParser extends antlr.Parser {
             this.state = 41;
             this.errorHandler.sync(this);
             _la = this.tokenStream.LA(1);
-            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 35) {
+            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 36) {
                 {
                 {
                 this.state = 38;
@@ -235,7 +236,7 @@ export class BoQQIParser extends antlr.Parser {
             this.state = 69;
             this.errorHandler.sync(this);
             _la = this.tokenStream.LA(1);
-            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 35) {
+            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 36) {
                 {
                 {
                 this.state = 66;
@@ -260,7 +261,7 @@ export class BoQQIParser extends antlr.Parser {
                 this.state = 78;
                 this.errorHandler.sync(this);
                 _la = this.tokenStream.LA(1);
-                while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 35) {
+                while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 36) {
                     {
                     {
                     this.state = 75;
@@ -311,7 +312,7 @@ export class BoQQIParser extends antlr.Parser {
             this.state = 92;
             this.errorHandler.sync(this);
             _la = this.tokenStream.LA(1);
-            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 35) {
+            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 36) {
                 {
                 {
                 this.state = 89;
@@ -365,7 +366,7 @@ export class BoQQIParser extends antlr.Parser {
             this.state = 108;
             this.errorHandler.sync(this);
             _la = this.tokenStream.LA(1);
-            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 35) {
+            while ((((_la) & ~0x1F) === 0 && ((1 << _la) & 16138) !== 0) || _la === 36) {
                 {
                 {
                 this.state = 105;
@@ -397,7 +398,7 @@ export class BoQQIParser extends antlr.Parser {
         let localContext = new ReturnTypeContext(this.context, this.state);
         this.enterRule(localContext, 10, BoQQIParser.RULE_returnType);
         try {
-            this.state = 117;
+            this.state = 118;
             this.errorHandler.sync(this);
             switch (this.tokenStream.LA(1)) {
             case BoQQIParser.TYPE_INT:
@@ -416,6 +417,13 @@ export class BoQQIParser extends antlr.Parser {
                 {
                 this.state = 116;
                 this.nonNumericType();
+                }
+                break;
+            case BoQQIParser.TYPE_VOID:
+                this.enterOuterAlt(localContext, 3);
+                {
+                this.state = 117;
+                this.match(BoQQIParser.TYPE_VOID);
                 }
                 break;
             default:
@@ -440,7 +448,7 @@ export class BoQQIParser extends antlr.Parser {
         this.enterRule(localContext, 12, BoQQIParser.RULE_params);
         let _la: number;
         try {
-            this.state = 128;
+            this.state = 129;
             this.errorHandler.sync(this);
             switch (this.tokenStream.LA(1)) {
             case BoQQIParser.TYPE_INT:
@@ -449,21 +457,21 @@ export class BoQQIParser extends antlr.Parser {
             case BoQQIParser.TYPE_BOOL:
                 this.enterOuterAlt(localContext, 1);
                 {
-                this.state = 119;
+                this.state = 120;
                 this.param();
-                this.state = 124;
+                this.state = 125;
                 this.errorHandler.sync(this);
                 _la = this.tokenStream.LA(1);
-                while (_la === 29) {
+                while (_la === 30) {
                     {
                     {
-                    this.state = 120;
-                    this.match(BoQQIParser.COMMA);
                     this.state = 121;
+                    this.match(BoQQIParser.COMMA);
+                    this.state = 122;
                     this.param();
                     }
                     }
-                    this.state = 126;
+                    this.state = 127;
                     this.errorHandler.sync(this);
                     _la = this.tokenStream.LA(1);
                 }
@@ -496,18 +504,18 @@ export class BoQQIParser extends antlr.Parser {
         let localContext = new ParamContext(this.context, this.state);
         this.enterRule(localContext, 14, BoQQIParser.RULE_param);
         try {
-            this.state = 137;
+            this.state = 138;
             this.errorHandler.sync(this);
             switch (this.tokenStream.LA(1)) {
             case BoQQIParser.TYPE_INT:
             case BoQQIParser.TYPE_FLOAT:
                 this.enterOuterAlt(localContext, 1);
                 {
-                this.state = 130;
-                this.numericType();
                 this.state = 131;
-                this.domain();
+                this.numericType();
                 this.state = 132;
+                this.domain();
+                this.state = 133;
                 this.match(BoQQIParser.IDENT);
                 }
                 break;
@@ -515,9 +523,9 @@ export class BoQQIParser extends antlr.Parser {
             case BoQQIParser.TYPE_BOOL:
                 this.enterOuterAlt(localContext, 2);
                 {
-                this.state = 134;
-                this.nonNumericType();
                 this.state = 135;
+                this.nonNumericType();
+                this.state = 136;
                 this.match(BoQQIParser.IDENT);
                 }
                 break;
@@ -541,14 +549,23 @@ export class BoQQIParser extends antlr.Parser {
     public return_(): ReturnContext {
         let localContext = new ReturnContext(this.context, this.state);
         this.enterRule(localContext, 16, BoQQIParser.RULE_return);
+        let _la: number;
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 139;
-            this.match(BoQQIParser.RETURN);
             this.state = 140;
-            this.expr(0);
-            this.state = 141;
+            this.match(BoQQIParser.RETURN);
+            this.state = 142;
+            this.errorHandler.sync(this);
+            _la = this.tokenStream.LA(1);
+            if ((((_la) & ~0x1F) === 0 && ((1 << _la) & 67108912) !== 0) || ((((_la - 33)) & ~0x1F) === 0 && ((1 << (_la - 33)) & 15) !== 0)) {
+                {
+                this.state = 141;
+                this.expr(0);
+                }
+            }
+
+            this.state = 144;
             this.match(BoQQIParser.SEMI);
             }
         }
@@ -571,13 +588,13 @@ export class BoQQIParser extends antlr.Parser {
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 143;
-            this.match(BoQQIParser.IDENT);
-            this.state = 144;
-            this.match(BoQQIParser.LPAREN);
-            this.state = 145;
-            this.args();
             this.state = 146;
+            this.match(BoQQIParser.IDENT);
+            this.state = 147;
+            this.match(BoQQIParser.LPAREN);
+            this.state = 148;
+            this.args();
+            this.state = 149;
             this.match(BoQQIParser.RPAREN);
             }
         }
@@ -599,7 +616,7 @@ export class BoQQIParser extends antlr.Parser {
         this.enterRule(localContext, 20, BoQQIParser.RULE_args);
         let _la: number;
         try {
-            this.state = 157;
+            this.state = 160;
             this.errorHandler.sync(this);
             switch (this.tokenStream.LA(1)) {
             case BoQQIParser.TRUE:
@@ -611,21 +628,21 @@ export class BoQQIParser extends antlr.Parser {
             case BoQQIParser.IDENT:
                 this.enterOuterAlt(localContext, 1);
                 {
-                this.state = 148;
+                this.state = 151;
                 this.expr(0);
-                this.state = 153;
+                this.state = 156;
                 this.errorHandler.sync(this);
                 _la = this.tokenStream.LA(1);
-                while (_la === 29) {
+                while (_la === 30) {
                     {
                     {
-                    this.state = 149;
+                    this.state = 152;
                     this.match(BoQQIParser.COMMA);
-                    this.state = 150;
+                    this.state = 153;
                     this.expr(0);
                     }
                     }
-                    this.state = 155;
+                    this.state = 158;
                     this.errorHandler.sync(this);
                     _la = this.tokenStream.LA(1);
                 }
@@ -658,54 +675,54 @@ export class BoQQIParser extends antlr.Parser {
         let localContext = new DeclareContext(this.context, this.state);
         this.enterRule(localContext, 22, BoQQIParser.RULE_declare);
         try {
-            this.state = 177;
+            this.state = 180;
             this.errorHandler.sync(this);
-            switch (this.interpreter.adaptivePredict(this.tokenStream, 13, this.context) ) {
+            switch (this.interpreter.adaptivePredict(this.tokenStream, 14, this.context) ) {
             case 1:
                 this.enterOuterAlt(localContext, 1);
                 {
-                this.state = 159;
+                this.state = 162;
                 this.numericType();
-                this.state = 160;
+                this.state = 163;
                 this.domain();
-                this.state = 161;
+                this.state = 164;
                 this.match(BoQQIParser.IDENT);
                 }
                 break;
             case 2:
                 this.enterOuterAlt(localContext, 2);
                 {
-                this.state = 163;
-                this.numericType();
-                this.state = 164;
-                this.domain();
-                this.state = 165;
-                this.match(BoQQIParser.IDENT);
                 this.state = 166;
-                this.match(BoQQIParser.EQUAL);
+                this.numericType();
                 this.state = 167;
+                this.domain();
+                this.state = 168;
+                this.match(BoQQIParser.IDENT);
+                this.state = 169;
+                this.match(BoQQIParser.EQUAL);
+                this.state = 170;
                 this.expr(0);
                 }
                 break;
             case 3:
                 this.enterOuterAlt(localContext, 3);
                 {
-                this.state = 169;
+                this.state = 172;
                 this.nonNumericType();
-                this.state = 170;
+                this.state = 173;
                 this.match(BoQQIParser.IDENT);
                 }
                 break;
             case 4:
                 this.enterOuterAlt(localContext, 4);
                 {
-                this.state = 172;
-                this.nonNumericType();
-                this.state = 173;
-                this.match(BoQQIParser.IDENT);
-                this.state = 174;
-                this.match(BoQQIParser.EQUAL);
                 this.state = 175;
+                this.nonNumericType();
+                this.state = 176;
+                this.match(BoQQIParser.IDENT);
+                this.state = 177;
+                this.match(BoQQIParser.EQUAL);
+                this.state = 178;
                 this.expr(0);
                 }
                 break;
@@ -730,23 +747,23 @@ export class BoQQIParser extends antlr.Parser {
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 179;
-            this.match(BoQQIParser.LBRACE);
-            this.state = 180;
-            this.match(BoQQIParser.MAX);
-            this.state = 181;
-            this.match(BoQQIParser.COLON);
             this.state = 182;
-            this.expr(0);
+            this.match(BoQQIParser.LBRACE);
             this.state = 183;
-            this.match(BoQQIParser.COMMA);
+            this.match(BoQQIParser.MAX);
             this.state = 184;
-            this.match(BoQQIParser.MIN);
-            this.state = 185;
             this.match(BoQQIParser.COLON);
-            this.state = 186;
+            this.state = 185;
             this.expr(0);
+            this.state = 186;
+            this.match(BoQQIParser.COMMA);
             this.state = 187;
+            this.match(BoQQIParser.MIN);
+            this.state = 188;
+            this.match(BoQQIParser.COLON);
+            this.state = 189;
+            this.expr(0);
+            this.state = 190;
             this.match(BoQQIParser.RBRACE);
             }
         }
@@ -769,11 +786,11 @@ export class BoQQIParser extends antlr.Parser {
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 189;
+            this.state = 192;
             this.match(BoQQIParser.IDENT);
-            this.state = 190;
+            this.state = 193;
             this.match(BoQQIParser.EQUAL);
-            this.state = 191;
+            this.state = 194;
             this.expr(0);
             }
         }
@@ -794,14 +811,14 @@ export class BoQQIParser extends antlr.Parser {
         let localContext = new TypeContext(this.context, this.state);
         this.enterRule(localContext, 28, BoQQIParser.RULE_type);
         try {
-            this.state = 195;
+            this.state = 198;
             this.errorHandler.sync(this);
             switch (this.tokenStream.LA(1)) {
             case BoQQIParser.TYPE_INT:
             case BoQQIParser.TYPE_FLOAT:
                 this.enterOuterAlt(localContext, 1);
                 {
-                this.state = 193;
+                this.state = 196;
                 this.numericType();
                 }
                 break;
@@ -809,7 +826,7 @@ export class BoQQIParser extends antlr.Parser {
             case BoQQIParser.TYPE_BOOL:
                 this.enterOuterAlt(localContext, 2);
                 {
-                this.state = 194;
+                this.state = 197;
                 this.nonNumericType();
                 }
                 break;
@@ -837,7 +854,7 @@ export class BoQQIParser extends antlr.Parser {
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 197;
+            this.state = 200;
             _la = this.tokenStream.LA(1);
             if(!(_la === 10 || _la === 11)) {
             this.errorHandler.recoverInline(this);
@@ -868,7 +885,7 @@ export class BoQQIParser extends antlr.Parser {
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 199;
+            this.state = 202;
             _la = this.tokenStream.LA(1);
             if(!(_la === 12 || _la === 13)) {
             this.errorHandler.recoverInline(this);
@@ -911,20 +928,20 @@ export class BoQQIParser extends antlr.Parser {
             let alternative: number;
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 212;
+            this.state = 215;
             this.errorHandler.sync(this);
-            switch (this.interpreter.adaptivePredict(this.tokenStream, 15, this.context) ) {
+            switch (this.interpreter.adaptivePredict(this.tokenStream, 16, this.context) ) {
             case 1:
                 {
                 localContext = new ParensContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
 
-                this.state = 202;
+                this.state = 205;
                 this.match(BoQQIParser.LPAREN);
-                this.state = 203;
+                this.state = 206;
                 this.expr(0);
-                this.state = 204;
+                this.state = 207;
                 this.match(BoQQIParser.RPAREN);
                 }
                 break;
@@ -933,7 +950,7 @@ export class BoQQIParser extends antlr.Parser {
                 localContext = new FloatContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
-                this.state = 206;
+                this.state = 209;
                 this.match(BoQQIParser.FLOAT);
                 }
                 break;
@@ -942,7 +959,7 @@ export class BoQQIParser extends antlr.Parser {
                 localContext = new IntContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
-                this.state = 207;
+                this.state = 210;
                 this.match(BoQQIParser.INT);
                 }
                 break;
@@ -951,7 +968,7 @@ export class BoQQIParser extends antlr.Parser {
                 localContext = new StringContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
-                this.state = 208;
+                this.state = 211;
                 this.match(BoQQIParser.STRING);
                 }
                 break;
@@ -960,7 +977,7 @@ export class BoQQIParser extends antlr.Parser {
                 localContext = new BoolContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
-                this.state = 209;
+                this.state = 212;
                 this.boolean_();
                 }
                 break;
@@ -969,7 +986,7 @@ export class BoQQIParser extends antlr.Parser {
                 localContext = new CallExprContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
-                this.state = 210;
+                this.state = 213;
                 this.call();
                 }
                 break;
@@ -978,15 +995,15 @@ export class BoQQIParser extends antlr.Parser {
                 localContext = new VarContext(localContext);
                 this.context = localContext;
                 previousContext = localContext;
-                this.state = 211;
+                this.state = 214;
                 this.match(BoQQIParser.IDENT);
                 }
                 break;
             }
             this.context!.stop = this.tokenStream.LT(-1);
-            this.state = 228;
+            this.state = 231;
             this.errorHandler.sync(this);
-            alternative = this.interpreter.adaptivePredict(this.tokenStream, 17, this.context);
+            alternative = this.interpreter.adaptivePredict(this.tokenStream, 18, this.context);
             while (alternative !== 2 && alternative !== antlr.ATN.INVALID_ALT_NUMBER) {
                 if (alternative === 1) {
                     if (this.parseListeners != null) {
@@ -994,28 +1011,28 @@ export class BoQQIParser extends antlr.Parser {
                     }
                     previousContext = localContext;
                     {
-                    this.state = 226;
+                    this.state = 229;
                     this.errorHandler.sync(this);
-                    switch (this.interpreter.adaptivePredict(this.tokenStream, 16, this.context) ) {
+                    switch (this.interpreter.adaptivePredict(this.tokenStream, 17, this.context) ) {
                     case 1:
                         {
                         localContext = new MulDivContext(new ExprContext(parentContext, parentState));
                         this.pushNewRecursionContext(localContext, _startState, BoQQIParser.RULE_expr);
-                        this.state = 214;
+                        this.state = 217;
                         if (!(this.precpred(this.context, 11))) {
                             throw this.createFailedPredicateException("this.precpred(this.context, 11)");
                         }
-                        this.state = 215;
+                        this.state = 218;
                         (localContext as MulDivContext)._op = this.tokenStream.LT(1);
                         _la = this.tokenStream.LA(1);
-                        if(!(_la === 16 || _la === 17)) {
+                        if(!(_la === 17 || _la === 18)) {
                             (localContext as MulDivContext)._op = this.errorHandler.recoverInline(this);
                         }
                         else {
                             this.errorHandler.reportMatch(this);
                             this.consume();
                         }
-                        this.state = 216;
+                        this.state = 219;
                         this.expr(12);
                         }
                         break;
@@ -1023,21 +1040,21 @@ export class BoQQIParser extends antlr.Parser {
                         {
                         localContext = new AddSubContext(new ExprContext(parentContext, parentState));
                         this.pushNewRecursionContext(localContext, _startState, BoQQIParser.RULE_expr);
-                        this.state = 217;
+                        this.state = 220;
                         if (!(this.precpred(this.context, 10))) {
                             throw this.createFailedPredicateException("this.precpred(this.context, 10)");
                         }
-                        this.state = 218;
+                        this.state = 221;
                         (localContext as AddSubContext)._op = this.tokenStream.LT(1);
                         _la = this.tokenStream.LA(1);
-                        if(!(_la === 14 || _la === 15)) {
+                        if(!(_la === 15 || _la === 16)) {
                             (localContext as AddSubContext)._op = this.errorHandler.recoverInline(this);
                         }
                         else {
                             this.errorHandler.reportMatch(this);
                             this.consume();
                         }
-                        this.state = 219;
+                        this.state = 222;
                         this.expr(11);
                         }
                         break;
@@ -1045,21 +1062,21 @@ export class BoQQIParser extends antlr.Parser {
                         {
                         localContext = new CompContext(new ExprContext(parentContext, parentState));
                         this.pushNewRecursionContext(localContext, _startState, BoQQIParser.RULE_expr);
-                        this.state = 220;
+                        this.state = 223;
                         if (!(this.precpred(this.context, 9))) {
                             throw this.createFailedPredicateException("this.precpred(this.context, 9)");
                         }
-                        this.state = 221;
+                        this.state = 224;
                         (localContext as CompContext)._op = this.tokenStream.LT(1);
                         _la = this.tokenStream.LA(1);
-                        if(!((((_la) & ~0x1F) === 0 && ((1 << _la) & 31457280) !== 0))) {
+                        if(!((((_la) & ~0x1F) === 0 && ((1 << _la) & 62914560) !== 0))) {
                             (localContext as CompContext)._op = this.errorHandler.recoverInline(this);
                         }
                         else {
                             this.errorHandler.reportMatch(this);
                             this.consume();
                         }
-                        this.state = 222;
+                        this.state = 225;
                         this.expr(10);
                         }
                         break;
@@ -1067,30 +1084,30 @@ export class BoQQIParser extends antlr.Parser {
                         {
                         localContext = new EqContext(new ExprContext(parentContext, parentState));
                         this.pushNewRecursionContext(localContext, _startState, BoQQIParser.RULE_expr);
-                        this.state = 223;
+                        this.state = 226;
                         if (!(this.precpred(this.context, 8))) {
                             throw this.createFailedPredicateException("this.precpred(this.context, 8)");
                         }
-                        this.state = 224;
+                        this.state = 227;
                         (localContext as EqContext)._op = this.tokenStream.LT(1);
                         _la = this.tokenStream.LA(1);
-                        if(!(_la === 19 || _la === 20)) {
+                        if(!(_la === 20 || _la === 21)) {
                             (localContext as EqContext)._op = this.errorHandler.recoverInline(this);
                         }
                         else {
                             this.errorHandler.reportMatch(this);
                             this.consume();
                         }
-                        this.state = 225;
+                        this.state = 228;
                         this.expr(9);
                         }
                         break;
                     }
                     }
                 }
-                this.state = 230;
+                this.state = 233;
                 this.errorHandler.sync(this);
-                alternative = this.interpreter.adaptivePredict(this.tokenStream, 17, this.context);
+                alternative = this.interpreter.adaptivePredict(this.tokenStream, 18, this.context);
             }
             }
         }
@@ -1114,7 +1131,7 @@ export class BoQQIParser extends antlr.Parser {
         try {
             this.enterOuterAlt(localContext, 1);
             {
-            this.state = 231;
+            this.state = 234;
             _la = this.tokenStream.LA(1);
             if(!(_la === 4 || _la === 5)) {
             this.errorHandler.recoverInline(this);
@@ -1161,7 +1178,7 @@ export class BoQQIParser extends antlr.Parser {
     }
 
     public static readonly _serializedATN: number[] = [
-        4,1,36,234,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
+        4,1,37,237,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
         6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,
         2,14,7,14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,1,0,5,0,40,8,0,
         10,0,12,0,43,9,0,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -1169,79 +1186,81 @@ export class BoQQIParser extends antlr.Parser {
         2,71,9,2,1,2,1,2,1,2,1,2,5,2,77,8,2,10,2,12,2,80,9,2,1,2,3,2,83,
         8,2,1,3,1,3,1,3,1,3,1,3,1,3,5,3,91,8,3,10,3,12,3,94,9,3,1,3,1,3,
         1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,1,4,5,4,107,8,4,10,4,12,4,110,9,
-        4,1,4,1,4,1,5,1,5,1,5,1,5,3,5,118,8,5,1,6,1,6,1,6,5,6,123,8,6,10,
-        6,12,6,126,9,6,1,6,3,6,129,8,6,1,7,1,7,1,7,1,7,1,7,1,7,1,7,3,7,138,
-        8,7,1,8,1,8,1,8,1,8,1,9,1,9,1,9,1,9,1,9,1,10,1,10,1,10,5,10,152,
-        8,10,10,10,12,10,155,9,10,1,10,3,10,158,8,10,1,11,1,11,1,11,1,11,
+        4,1,4,1,4,1,5,1,5,1,5,1,5,1,5,3,5,119,8,5,1,6,1,6,1,6,5,6,124,8,
+        6,10,6,12,6,127,9,6,1,6,3,6,130,8,6,1,7,1,7,1,7,1,7,1,7,1,7,1,7,
+        3,7,139,8,7,1,8,1,8,3,8,143,8,8,1,8,1,8,1,9,1,9,1,9,1,9,1,9,1,10,
+        1,10,1,10,5,10,155,8,10,10,10,12,10,158,9,10,1,10,3,10,161,8,10,
         1,11,1,11,1,11,1,11,1,11,1,11,1,11,1,11,1,11,1,11,1,11,1,11,1,11,
-        1,11,3,11,178,8,11,1,12,1,12,1,12,1,12,1,12,1,12,1,12,1,12,1,12,
-        1,12,1,13,1,13,1,13,1,13,1,14,1,14,3,14,196,8,14,1,15,1,15,1,16,
-        1,16,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,3,17,
-        213,8,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,
-        1,17,5,17,227,8,17,10,17,12,17,230,9,17,1,18,1,18,1,18,0,1,34,19,
-        0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,0,7,1,0,10,11,
-        1,0,12,13,1,0,16,17,1,0,14,15,1,0,21,24,1,0,19,20,1,0,4,5,246,0,
-        41,1,0,0,0,2,59,1,0,0,0,4,61,1,0,0,0,6,84,1,0,0,0,8,97,1,0,0,0,10,
-        117,1,0,0,0,12,128,1,0,0,0,14,137,1,0,0,0,16,139,1,0,0,0,18,143,
-        1,0,0,0,20,157,1,0,0,0,22,177,1,0,0,0,24,179,1,0,0,0,26,189,1,0,
-        0,0,28,195,1,0,0,0,30,197,1,0,0,0,32,199,1,0,0,0,34,212,1,0,0,0,
-        36,231,1,0,0,0,38,40,3,2,1,0,39,38,1,0,0,0,40,43,1,0,0,0,41,39,1,
-        0,0,0,41,42,1,0,0,0,42,44,1,0,0,0,43,41,1,0,0,0,44,45,5,0,0,1,45,
-        1,1,0,0,0,46,60,3,4,2,0,47,60,3,6,3,0,48,60,3,8,4,0,49,50,3,18,9,
-        0,50,51,5,31,0,0,51,60,1,0,0,0,52,53,3,22,11,0,53,54,5,31,0,0,54,
-        60,1,0,0,0,55,56,3,26,13,0,56,57,5,31,0,0,57,60,1,0,0,0,58,60,3,
-        16,8,0,59,46,1,0,0,0,59,47,1,0,0,0,59,48,1,0,0,0,59,49,1,0,0,0,59,
-        52,1,0,0,0,59,55,1,0,0,0,59,58,1,0,0,0,60,3,1,0,0,0,61,62,5,1,0,
-        0,62,63,5,25,0,0,63,64,3,34,17,0,64,65,5,26,0,0,65,69,5,27,0,0,66,
-        68,3,2,1,0,67,66,1,0,0,0,68,71,1,0,0,0,69,67,1,0,0,0,69,70,1,0,0,
-        0,70,72,1,0,0,0,71,69,1,0,0,0,72,82,5,28,0,0,73,74,5,2,0,0,74,78,
-        5,27,0,0,75,77,3,2,1,0,76,75,1,0,0,0,77,80,1,0,0,0,78,76,1,0,0,0,
-        78,79,1,0,0,0,79,81,1,0,0,0,80,78,1,0,0,0,81,83,5,28,0,0,82,73,1,
-        0,0,0,82,83,1,0,0,0,83,5,1,0,0,0,84,85,5,3,0,0,85,86,5,25,0,0,86,
-        87,3,34,17,0,87,88,5,26,0,0,88,92,5,27,0,0,89,91,3,2,1,0,90,89,1,
-        0,0,0,91,94,1,0,0,0,92,90,1,0,0,0,92,93,1,0,0,0,93,95,1,0,0,0,94,
-        92,1,0,0,0,95,96,5,28,0,0,96,7,1,0,0,0,97,98,5,8,0,0,98,99,5,35,
-        0,0,99,100,5,25,0,0,100,101,3,12,6,0,101,102,5,26,0,0,102,103,5,
-        30,0,0,103,104,3,10,5,0,104,108,5,27,0,0,105,107,3,2,1,0,106,105,
-        1,0,0,0,107,110,1,0,0,0,108,106,1,0,0,0,108,109,1,0,0,0,109,111,
-        1,0,0,0,110,108,1,0,0,0,111,112,5,28,0,0,112,9,1,0,0,0,113,114,3,
-        30,15,0,114,115,3,24,12,0,115,118,1,0,0,0,116,118,3,32,16,0,117,
-        113,1,0,0,0,117,116,1,0,0,0,118,11,1,0,0,0,119,124,3,14,7,0,120,
-        121,5,29,0,0,121,123,3,14,7,0,122,120,1,0,0,0,123,126,1,0,0,0,124,
-        122,1,0,0,0,124,125,1,0,0,0,125,129,1,0,0,0,126,124,1,0,0,0,127,
-        129,1,0,0,0,128,119,1,0,0,0,128,127,1,0,0,0,129,13,1,0,0,0,130,131,
-        3,30,15,0,131,132,3,24,12,0,132,133,5,35,0,0,133,138,1,0,0,0,134,
-        135,3,32,16,0,135,136,5,35,0,0,136,138,1,0,0,0,137,130,1,0,0,0,137,
-        134,1,0,0,0,138,15,1,0,0,0,139,140,5,9,0,0,140,141,3,34,17,0,141,
-        142,5,31,0,0,142,17,1,0,0,0,143,144,5,35,0,0,144,145,5,25,0,0,145,
-        146,3,20,10,0,146,147,5,26,0,0,147,19,1,0,0,0,148,153,3,34,17,0,
-        149,150,5,29,0,0,150,152,3,34,17,0,151,149,1,0,0,0,152,155,1,0,0,
-        0,153,151,1,0,0,0,153,154,1,0,0,0,154,158,1,0,0,0,155,153,1,0,0,
-        0,156,158,1,0,0,0,157,148,1,0,0,0,157,156,1,0,0,0,158,21,1,0,0,0,
-        159,160,3,30,15,0,160,161,3,24,12,0,161,162,5,35,0,0,162,178,1,0,
-        0,0,163,164,3,30,15,0,164,165,3,24,12,0,165,166,5,35,0,0,166,167,
-        5,18,0,0,167,168,3,34,17,0,168,178,1,0,0,0,169,170,3,32,16,0,170,
-        171,5,35,0,0,171,178,1,0,0,0,172,173,3,32,16,0,173,174,5,35,0,0,
-        174,175,5,18,0,0,175,176,3,34,17,0,176,178,1,0,0,0,177,159,1,0,0,
-        0,177,163,1,0,0,0,177,169,1,0,0,0,177,172,1,0,0,0,178,23,1,0,0,0,
-        179,180,5,27,0,0,180,181,5,6,0,0,181,182,5,30,0,0,182,183,3,34,17,
-        0,183,184,5,29,0,0,184,185,5,7,0,0,185,186,5,30,0,0,186,187,3,34,
-        17,0,187,188,5,28,0,0,188,25,1,0,0,0,189,190,5,35,0,0,190,191,5,
-        18,0,0,191,192,3,34,17,0,192,27,1,0,0,0,193,196,3,30,15,0,194,196,
-        3,32,16,0,195,193,1,0,0,0,195,194,1,0,0,0,196,29,1,0,0,0,197,198,
-        7,0,0,0,198,31,1,0,0,0,199,200,7,1,0,0,200,33,1,0,0,0,201,202,6,
-        17,-1,0,202,203,5,25,0,0,203,204,3,34,17,0,204,205,5,26,0,0,205,
-        213,1,0,0,0,206,213,5,32,0,0,207,213,5,33,0,0,208,213,5,34,0,0,209,
-        213,3,36,18,0,210,213,3,18,9,0,211,213,5,35,0,0,212,201,1,0,0,0,
-        212,206,1,0,0,0,212,207,1,0,0,0,212,208,1,0,0,0,212,209,1,0,0,0,
-        212,210,1,0,0,0,212,211,1,0,0,0,213,228,1,0,0,0,214,215,10,11,0,
-        0,215,216,7,2,0,0,216,227,3,34,17,12,217,218,10,10,0,0,218,219,7,
-        3,0,0,219,227,3,34,17,11,220,221,10,9,0,0,221,222,7,4,0,0,222,227,
-        3,34,17,10,223,224,10,8,0,0,224,225,7,5,0,0,225,227,3,34,17,9,226,
-        214,1,0,0,0,226,217,1,0,0,0,226,220,1,0,0,0,226,223,1,0,0,0,227,
-        230,1,0,0,0,228,226,1,0,0,0,228,229,1,0,0,0,229,35,1,0,0,0,230,228,
-        1,0,0,0,231,232,7,6,0,0,232,37,1,0,0,0,18,41,59,69,78,82,92,108,
-        117,124,128,137,153,157,177,195,212,226,228
+        1,11,1,11,1,11,1,11,1,11,3,11,181,8,11,1,12,1,12,1,12,1,12,1,12,
+        1,12,1,12,1,12,1,12,1,12,1,13,1,13,1,13,1,13,1,14,1,14,3,14,199,
+        8,14,1,15,1,15,1,16,1,16,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,
+        1,17,1,17,1,17,3,17,216,8,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,
+        1,17,1,17,1,17,1,17,1,17,5,17,230,8,17,10,17,12,17,233,9,17,1,18,
+        1,18,1,18,0,1,34,19,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,
+        34,36,0,7,1,0,10,11,1,0,12,13,1,0,17,18,1,0,15,16,1,0,22,25,1,0,
+        20,21,1,0,4,5,251,0,41,1,0,0,0,2,59,1,0,0,0,4,61,1,0,0,0,6,84,1,
+        0,0,0,8,97,1,0,0,0,10,118,1,0,0,0,12,129,1,0,0,0,14,138,1,0,0,0,
+        16,140,1,0,0,0,18,146,1,0,0,0,20,160,1,0,0,0,22,180,1,0,0,0,24,182,
+        1,0,0,0,26,192,1,0,0,0,28,198,1,0,0,0,30,200,1,0,0,0,32,202,1,0,
+        0,0,34,215,1,0,0,0,36,234,1,0,0,0,38,40,3,2,1,0,39,38,1,0,0,0,40,
+        43,1,0,0,0,41,39,1,0,0,0,41,42,1,0,0,0,42,44,1,0,0,0,43,41,1,0,0,
+        0,44,45,5,0,0,1,45,1,1,0,0,0,46,60,3,4,2,0,47,60,3,6,3,0,48,60,3,
+        8,4,0,49,50,3,18,9,0,50,51,5,32,0,0,51,60,1,0,0,0,52,53,3,22,11,
+        0,53,54,5,32,0,0,54,60,1,0,0,0,55,56,3,26,13,0,56,57,5,32,0,0,57,
+        60,1,0,0,0,58,60,3,16,8,0,59,46,1,0,0,0,59,47,1,0,0,0,59,48,1,0,
+        0,0,59,49,1,0,0,0,59,52,1,0,0,0,59,55,1,0,0,0,59,58,1,0,0,0,60,3,
+        1,0,0,0,61,62,5,1,0,0,62,63,5,26,0,0,63,64,3,34,17,0,64,65,5,27,
+        0,0,65,69,5,28,0,0,66,68,3,2,1,0,67,66,1,0,0,0,68,71,1,0,0,0,69,
+        67,1,0,0,0,69,70,1,0,0,0,70,72,1,0,0,0,71,69,1,0,0,0,72,82,5,29,
+        0,0,73,74,5,2,0,0,74,78,5,28,0,0,75,77,3,2,1,0,76,75,1,0,0,0,77,
+        80,1,0,0,0,78,76,1,0,0,0,78,79,1,0,0,0,79,81,1,0,0,0,80,78,1,0,0,
+        0,81,83,5,29,0,0,82,73,1,0,0,0,82,83,1,0,0,0,83,5,1,0,0,0,84,85,
+        5,3,0,0,85,86,5,26,0,0,86,87,3,34,17,0,87,88,5,27,0,0,88,92,5,28,
+        0,0,89,91,3,2,1,0,90,89,1,0,0,0,91,94,1,0,0,0,92,90,1,0,0,0,92,93,
+        1,0,0,0,93,95,1,0,0,0,94,92,1,0,0,0,95,96,5,29,0,0,96,7,1,0,0,0,
+        97,98,5,8,0,0,98,99,5,36,0,0,99,100,5,26,0,0,100,101,3,12,6,0,101,
+        102,5,27,0,0,102,103,5,31,0,0,103,104,3,10,5,0,104,108,5,28,0,0,
+        105,107,3,2,1,0,106,105,1,0,0,0,107,110,1,0,0,0,108,106,1,0,0,0,
+        108,109,1,0,0,0,109,111,1,0,0,0,110,108,1,0,0,0,111,112,5,29,0,0,
+        112,9,1,0,0,0,113,114,3,30,15,0,114,115,3,24,12,0,115,119,1,0,0,
+        0,116,119,3,32,16,0,117,119,5,14,0,0,118,113,1,0,0,0,118,116,1,0,
+        0,0,118,117,1,0,0,0,119,11,1,0,0,0,120,125,3,14,7,0,121,122,5,30,
+        0,0,122,124,3,14,7,0,123,121,1,0,0,0,124,127,1,0,0,0,125,123,1,0,
+        0,0,125,126,1,0,0,0,126,130,1,0,0,0,127,125,1,0,0,0,128,130,1,0,
+        0,0,129,120,1,0,0,0,129,128,1,0,0,0,130,13,1,0,0,0,131,132,3,30,
+        15,0,132,133,3,24,12,0,133,134,5,36,0,0,134,139,1,0,0,0,135,136,
+        3,32,16,0,136,137,5,36,0,0,137,139,1,0,0,0,138,131,1,0,0,0,138,135,
+        1,0,0,0,139,15,1,0,0,0,140,142,5,9,0,0,141,143,3,34,17,0,142,141,
+        1,0,0,0,142,143,1,0,0,0,143,144,1,0,0,0,144,145,5,32,0,0,145,17,
+        1,0,0,0,146,147,5,36,0,0,147,148,5,26,0,0,148,149,3,20,10,0,149,
+        150,5,27,0,0,150,19,1,0,0,0,151,156,3,34,17,0,152,153,5,30,0,0,153,
+        155,3,34,17,0,154,152,1,0,0,0,155,158,1,0,0,0,156,154,1,0,0,0,156,
+        157,1,0,0,0,157,161,1,0,0,0,158,156,1,0,0,0,159,161,1,0,0,0,160,
+        151,1,0,0,0,160,159,1,0,0,0,161,21,1,0,0,0,162,163,3,30,15,0,163,
+        164,3,24,12,0,164,165,5,36,0,0,165,181,1,0,0,0,166,167,3,30,15,0,
+        167,168,3,24,12,0,168,169,5,36,0,0,169,170,5,19,0,0,170,171,3,34,
+        17,0,171,181,1,0,0,0,172,173,3,32,16,0,173,174,5,36,0,0,174,181,
+        1,0,0,0,175,176,3,32,16,0,176,177,5,36,0,0,177,178,5,19,0,0,178,
+        179,3,34,17,0,179,181,1,0,0,0,180,162,1,0,0,0,180,166,1,0,0,0,180,
+        172,1,0,0,0,180,175,1,0,0,0,181,23,1,0,0,0,182,183,5,28,0,0,183,
+        184,5,6,0,0,184,185,5,31,0,0,185,186,3,34,17,0,186,187,5,30,0,0,
+        187,188,5,7,0,0,188,189,5,31,0,0,189,190,3,34,17,0,190,191,5,29,
+        0,0,191,25,1,0,0,0,192,193,5,36,0,0,193,194,5,19,0,0,194,195,3,34,
+        17,0,195,27,1,0,0,0,196,199,3,30,15,0,197,199,3,32,16,0,198,196,
+        1,0,0,0,198,197,1,0,0,0,199,29,1,0,0,0,200,201,7,0,0,0,201,31,1,
+        0,0,0,202,203,7,1,0,0,203,33,1,0,0,0,204,205,6,17,-1,0,205,206,5,
+        26,0,0,206,207,3,34,17,0,207,208,5,27,0,0,208,216,1,0,0,0,209,216,
+        5,33,0,0,210,216,5,34,0,0,211,216,5,35,0,0,212,216,3,36,18,0,213,
+        216,3,18,9,0,214,216,5,36,0,0,215,204,1,0,0,0,215,209,1,0,0,0,215,
+        210,1,0,0,0,215,211,1,0,0,0,215,212,1,0,0,0,215,213,1,0,0,0,215,
+        214,1,0,0,0,216,231,1,0,0,0,217,218,10,11,0,0,218,219,7,2,0,0,219,
+        230,3,34,17,12,220,221,10,10,0,0,221,222,7,3,0,0,222,230,3,34,17,
+        11,223,224,10,9,0,0,224,225,7,4,0,0,225,230,3,34,17,10,226,227,10,
+        8,0,0,227,228,7,5,0,0,228,230,3,34,17,9,229,217,1,0,0,0,229,220,
+        1,0,0,0,229,223,1,0,0,0,229,226,1,0,0,0,230,233,1,0,0,0,231,229,
+        1,0,0,0,231,232,1,0,0,0,232,35,1,0,0,0,233,231,1,0,0,0,234,235,7,
+        6,0,0,235,37,1,0,0,0,19,41,59,69,78,82,92,108,118,125,129,138,142,
+        156,160,180,198,215,229,231
     ];
 
     private static __ATN: antlr.ATN;
@@ -1517,6 +1536,9 @@ export class ReturnTypeContext extends antlr.ParserRuleContext {
     public nonNumericType(): NonNumericTypeContext | null {
         return this.getRuleContext(0, NonNumericTypeContext);
     }
+    public TYPE_VOID(): antlr.TerminalNode | null {
+        return this.getToken(BoQQIParser.TYPE_VOID, 0);
+    }
     public override get ruleIndex(): number {
         return BoQQIParser.RULE_returnType;
     }
@@ -1610,11 +1632,11 @@ export class ReturnContext extends antlr.ParserRuleContext {
     public RETURN(): antlr.TerminalNode {
         return this.getToken(BoQQIParser.RETURN, 0)!;
     }
-    public expr(): ExprContext {
-        return this.getRuleContext(0, ExprContext)!;
-    }
     public SEMI(): antlr.TerminalNode {
         return this.getToken(BoQQIParser.SEMI, 0)!;
+    }
+    public expr(): ExprContext | null {
+        return this.getRuleContext(0, ExprContext);
     }
     public override get ruleIndex(): number {
         return BoQQIParser.RULE_return;

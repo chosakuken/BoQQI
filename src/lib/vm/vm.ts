@@ -5,6 +5,7 @@ import {
   FloatValue,
   IntValue,
   StringValue,
+  VoidValue,
 } from "../visitor/interpreter/runtimeValue/valuableValue.js";
 import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
 import {
@@ -53,6 +54,9 @@ export class BoqqiVM {
 
     this.funcs.set("print", (args: RuntimeValue[]) => {
       for (const arg of args) {
+        if (arg.type === "void") {
+          this.fail("void 型の値は出力できません");
+        }
         this.output(`${String(arg.value)}\n`);
       }
       return new IntValue(0);
@@ -95,6 +99,9 @@ export class BoqqiVM {
         break;
       case "PUSH_BOOL":
         this.stack.push(new BoolValue(instruction.value));
+        break;
+      case "PUSH_VOID":
+        this.stack.push(new VoidValue());
         break;
       case "LOAD":
         this.stack.push(
@@ -211,6 +218,10 @@ export class BoqqiVM {
   private executeCompare(op: "EQ" | "NE" | "GT" | "LT" | "GE" | "LE"): void {
     const right = this.pop();
     const left = this.pop();
+
+    if (left.value === undefined || right.value === undefined) {
+      this.fail("void 型の値は比較できません");
+    }
 
     switch (op) {
       case "EQ":

@@ -14,6 +14,7 @@ TYPE_INT : 'int' ;
 TYPE_FLOAT : 'float' ;
 TYPE_STRING : 'string' ;
 TYPE_BOOL : 'bool';
+TYPE_VOID : 'void' ;
 
 PLUS  : '+' ;
 MINUS : '-' ;

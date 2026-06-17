@@ -1,6 +1,6 @@
 import { SourceLocation } from "../diagnostics/sourceLocation.js";
 
-export type ValueType = "int" | "float" | "string" | "bool";
+export type ValueType = "int" | "float" | "string" | "bool" | "void";
 
 export interface DomainSpec {
   readonly min: number;
@@ -42,6 +42,7 @@ export type Instruction = {
   | { readonly op: "PUSH_FLOAT"; readonly value: number }
   | { readonly op: "PUSH_STRING"; readonly value: string }
   | { readonly op: "PUSH_BOOL"; readonly value: boolean }
+  | { readonly op: "PUSH_VOID" }
   | {
       readonly op: "LOAD";
       readonly slot: number;

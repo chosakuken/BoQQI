@@ -216,7 +216,11 @@ function getParamType(ctx: ParamContext): string {
 }
 
 export function buildReturnAst(ctx: ReturnContext): ReturnNode {
-  return new ReturnNode(buildExprAst(ctx.expr()), location(ctx));
+  const expr = ctx.expr();
+  return new ReturnNode(
+    expr === null ? undefined : buildExprAst(expr),
+    location(ctx),
+  );
 }
 
 export function buildDeclareAst(ctx: DeclareContext): DeclareNode {
