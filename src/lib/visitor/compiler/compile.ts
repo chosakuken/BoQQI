@@ -11,6 +11,7 @@ import { IntNode } from "../../ast/nodes/int.js";
 import { AstNode } from "../../ast/nodes/node.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
+import { StatementNode } from "../../ast/nodes/statement.js";
 import { StringNode } from "../../ast/nodes/string.js";
 import { VarNode } from "../../ast/nodes/var.js";
 import {
@@ -64,7 +65,7 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitProgram(node: ProgramNode): void {
     for (const statement of node.body) {
-      statement.accept(this);
+      this.compileStatement(statement);
     }
   }
 
@@ -135,7 +136,6 @@ class BoqqiCompiler implements Visitor<void> {
       arg.accept(this);
     }
     this.emit({ op: "CALL", name: node.name, argc: node.args.length }, node);
-    this.emit({ op: "POP" }, node);
   }
 
   visitAssign(node: AssignNode): void {
@@ -203,7 +203,7 @@ class BoqqiCompiler implements Visitor<void> {
     );
 
     for (const statement of node.trueStatement) {
-      statement.accept(this);
+      this.compileStatement(statement);
     }
 
     if (node.falseStatement === undefined) {
@@ -215,7 +215,7 @@ class BoqqiCompiler implements Visitor<void> {
     this.patchJump(jumpIfFalseIndex, this.instructions.length);
 
     for (const statement of node.falseStatement) {
-      statement.accept(this);
+      this.compileStatement(statement);
     }
 
     this.patchJump(jumpToEndIndex, this.instructions.length);
@@ -263,7 +263,7 @@ class BoqqiCompiler implements Visitor<void> {
     }
 
     for (const statement of node.body) {
-      statement.accept(this);
+      this.compileStatement(statement);
     }
 
     this.emit({ op: "PUSH_INT", value: 0 }, node);
@@ -295,6 +295,13 @@ class BoqqiCompiler implements Visitor<void> {
       location: node?.location,
     });
     return this.instructions.length - 1;
+  }
+
+  private compileStatement(statement: StatementNode): void {
+    statement.accept(this);
+    if (statement instanceof CallNode) {
+      this.emit({ op: "POP" }, statement);
+    }
   }
 
   private patchJump(index: number, target: number): void {

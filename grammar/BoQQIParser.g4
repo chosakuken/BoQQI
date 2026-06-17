@@ -88,6 +88,7 @@ expr
     | INT                               # Int
     | STRING                            # String
     | boolean                           # bool
+    | call                              # CallExpr
     | IDENT                             # Var
     ;
 

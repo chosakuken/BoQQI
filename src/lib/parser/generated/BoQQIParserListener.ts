@@ -22,6 +22,7 @@ import { FloatContext } from "./BoQQIParser.js";
 import { IntContext } from "./BoQQIParser.js";
 import { StringContext } from "./BoQQIParser.js";
 import { BoolContext } from "./BoQQIParser.js";
+import { CallExprContext } from "./BoQQIParser.js";
 import { VarContext } from "./BoQQIParser.js";
 import { MulDivContext } from "./BoQQIParser.js";
 import { AddSubContext } from "./BoQQIParser.js";
@@ -245,6 +246,18 @@ export class BoQQIParserListener implements ParseTreeListener {
      * @param ctx the parse tree
      */
     exitBool?: (ctx: BoolContext) => void;
+    /**
+     * Enter a parse tree produced by the `CallExpr`
+     * labeled alternative in `BoQQIParser.expr`.
+     * @param ctx the parse tree
+     */
+    enterCallExpr?: (ctx: CallExprContext) => void;
+    /**
+     * Exit a parse tree produced by the `CallExpr`
+     * labeled alternative in `BoQQIParser.expr`.
+     * @param ctx the parse tree
+     */
+    exitCallExpr?: (ctx: CallExprContext) => void;
     /**
      * Enter a parse tree produced by the `Var`
      * labeled alternative in `BoQQIParser.expr`.

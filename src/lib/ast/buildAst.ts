@@ -2,6 +2,7 @@ import {
   AddSubContext,
   AssignContext,
   BoolContext,
+  CallExprContext,
   CallContext,
   CompContext,
   DeclareContext,
@@ -250,6 +251,10 @@ export function buildExprAst(ctx: ExprContext): ExprNode {
 
   if (ctx instanceof ParensContext) {
     return buildExprAst(ctx.expr());
+  }
+
+  if (ctx instanceof CallExprContext) {
+    return buildCallAst(ctx.call());
   }
 
   if (ctx instanceof VarContext) {
