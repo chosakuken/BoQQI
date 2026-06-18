@@ -5,15 +5,13 @@ options {
 }
 
 program
-    : statement* EOF
+    : (statement | function | declaration SEMI)* EOF
     ;
 
 statement
     : if
     | while
-    | function
     | call SEMI
-    | declare SEMI
     | assign SEMI
     | return
     ;
@@ -27,7 +25,7 @@ while
     ;
 
 function
-    : FUNC IDENT LPAREN params RPAREN COLON returnType LBRACE statement* RBRACE
+    : FUNC IDENT LPAREN params RPAREN COLON returnType LBRACE (statement | declaration SEMI)* RBRACE
     ;
 
 returnType
@@ -59,7 +57,7 @@ args
     |
     ;
 
-declare
+declaration
     : numericType domain IDENT
     | numericType domain IDENT EQUAL expr
     | nonNumericType IDENT

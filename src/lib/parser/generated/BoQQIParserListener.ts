@@ -13,7 +13,7 @@ import { ParamContext } from "./BoQQIParser.js";
 import { ReturnContext } from "./BoQQIParser.js";
 import { CallContext } from "./BoQQIParser.js";
 import { ArgsContext } from "./BoQQIParser.js";
-import { DeclareContext } from "./BoQQIParser.js";
+import { DeclarationContext } from "./BoQQIParser.js";
 import { DomainContext } from "./BoQQIParser.js";
 import { AssignContext } from "./BoQQIParser.js";
 import { TypeContext } from "./BoQQIParser.js";
@@ -149,15 +149,15 @@ export class BoQQIParserListener implements ParseTreeListener {
      */
     exitArgs?: (ctx: ArgsContext) => void;
     /**
-     * Enter a parse tree produced by `BoQQIParser.declare`.
+     * Enter a parse tree produced by `BoQQIParser.declaration`.
      * @param ctx the parse tree
      */
-    enterDeclare?: (ctx: DeclareContext) => void;
+    enterDeclaration?: (ctx: DeclarationContext) => void;
     /**
-     * Exit a parse tree produced by `BoQQIParser.declare`.
+     * Exit a parse tree produced by `BoQQIParser.declaration`.
      * @param ctx the parse tree
      */
-    exitDeclare?: (ctx: DeclareContext) => void;
+    exitDeclaration?: (ctx: DeclarationContext) => void;
     /**
      * Enter a parse tree produced by `BoQQIParser.domain`.
      * @param ctx the parse tree
