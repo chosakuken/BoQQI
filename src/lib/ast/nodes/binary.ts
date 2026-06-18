@@ -3,7 +3,7 @@ import { SourceLocation } from "../../diagnostics/sourceLocation.js";
 import { ExprNode } from "./expr.js";
 import { AstNode } from "./node.js";
 
-export type BinaryOperator = "+" | "-" | "*" | "/";
+export type BinaryOperator = "+" | "-" | "*" | "/" | "%";
 
 export class BinaryNode implements AstNode {
   readonly kind: "binary";

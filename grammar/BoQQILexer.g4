@@ -20,6 +20,7 @@ PLUS  : '+' ;
 MINUS : '-' ;
 MUL   : '*' ;
 DIV   : '/' ;
+MOD   : '%' ;
 
 EQUAL : '=' ;
 
