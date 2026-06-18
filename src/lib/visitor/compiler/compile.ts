@@ -92,6 +92,9 @@ class BoqqiCompiler implements Visitor<void> {
       case "/":
         this.emit({ op: "DIV" }, node);
         break;
+      case "%":
+        this.emit({ op: "MOD" }, node);
+        break;
     }
   }
 

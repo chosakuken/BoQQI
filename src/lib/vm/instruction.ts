@@ -73,6 +73,7 @@ export type Instruction = {
   | { readonly op: "SUB" }
   | { readonly op: "MUL" }
   | { readonly op: "DIV" }
+  | { readonly op: "MOD" }
   | { readonly op: "EQ" }
   | { readonly op: "NE" }
   | { readonly op: "GT" }

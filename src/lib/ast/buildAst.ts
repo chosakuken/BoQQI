@@ -418,7 +418,13 @@ function parseStringLiteral(value: string): string {
 }
 
 function isBinaryOperator(value: string | undefined): value is BinaryOperator {
-  return value === "+" || value === "-" || value === "*" || value === "/";
+  return (
+    value === "+" ||
+    value === "-" ||
+    value === "*" ||
+    value === "/" ||
+    value === "%"
+  );
 }
 
 function isCompareOperator(

@@ -126,6 +126,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
             this.numericResultType(left, right),
             leftValue / rightValue,
           );
+        case "%":
+          if (rightValue === 0) {
+            this.fail("0 除算が検出されました");
+          }
+          return this.numberToRuntimeValue(
+            this.numericResultType(left, right),
+            leftValue % rightValue,
+          );
         default:
           this.fail(`演算子 ${String(node.operator)} は未定義です`);
       }

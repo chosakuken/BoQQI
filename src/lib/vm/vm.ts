@@ -134,6 +134,7 @@ export class BoqqiVM {
       case "SUB":
       case "MUL":
       case "DIV":
+      case "MOD":
         this.executeBinary(instruction.op);
         break;
       case "EQ":
@@ -162,7 +163,7 @@ export class BoqqiVM {
     }
   }
 
-  private executeBinary(op: "ADD" | "SUB" | "MUL" | "DIV"): void {
+  private executeBinary(op: "ADD" | "SUB" | "MUL" | "DIV" | "MOD"): void {
     const right = this.pop();
     const left = this.pop();
     const leftValue = Number(left.value);
@@ -201,6 +202,17 @@ export class BoqqiVM {
           this.numberToRuntimeValue(
             this.numericResultType(left, right),
             leftValue / rightValue,
+          ),
+        );
+        break;
+      case "MOD":
+        if (rightValue === 0) {
+          this.fail("0 除算が検出されました");
+        }
+        this.stack.push(
+          this.numberToRuntimeValue(
+            this.numericResultType(left, right),
+            leftValue % rightValue,
           ),
         );
         break;

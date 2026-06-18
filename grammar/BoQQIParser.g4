@@ -88,7 +88,7 @@ nonNumericType
     ;
 
 expr
-    : expr op=(MUL | DIV) expr          # MulDiv
+    : expr op=(MUL | DIV | MOD) expr    # MulDiv
     | expr op=(PLUS | MINUS) expr       # AddSub
     | expr op=(GE | LE | GT | LT) expr  # comp
     | expr op=(EQ | NE) expr            # eq
