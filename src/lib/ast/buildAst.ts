@@ -5,7 +5,7 @@ import {
   CallExprContext,
   CallContext,
   CompContext,
-  DeclareContext,
+  DeclarationContext,
   DomainContext,
   EqContext,
   ExprContext,
@@ -48,7 +48,28 @@ import { VarNode } from "./nodes/var.js";
 import { WhileNode } from "./nodes/while.js";
 
 export function buildProgramAst(ctx: ProgramContext): ProgramNode {
-  return new ProgramNode(ctx.statement().map(buildStatementAst), location(ctx));
+  return new ProgramNode(
+    orderContexts([
+      ...ctx.statement(),
+      ...ctx.function_(),
+      ...ctx.declaration(),
+    ]).map(buildProgramItemAst),
+    location(ctx),
+  );
+}
+
+function buildProgramItemAst(
+  ctx: StatementContext | FunctionContext | DeclarationContext,
+): StatementNode {
+  if (ctx instanceof StatementContext) {
+    return buildStatementAst(ctx);
+  }
+
+  if (ctx instanceof FunctionContext) {
+    return buildFunctionAst(ctx);
+  }
+
+  return buildDeclareAst(ctx);
 }
 
 export function buildStatementAst(ctx: StatementContext): StatementNode {
@@ -62,11 +83,6 @@ export function buildStatementAst(ctx: StatementContext): StatementNode {
     return buildWhileAst(while_);
   }
 
-  const function_ = ctx.function();
-  if (function_ !== null) {
-    return buildFunctionAst(function_);
-  }
-
   const call = ctx.call();
   if (call !== null) {
     return buildCallAst(call);
@@ -75,11 +91,6 @@ export function buildStatementAst(ctx: StatementContext): StatementNode {
   const assign = ctx.assign();
   if (assign !== null) {
     return buildAssignAst(assign);
-  }
-
-  const declare = ctx.declare();
-  if (declare !== null) {
-    return buildDeclareAst(declare);
   }
 
   const return_ = ctx.return();
@@ -161,7 +172,11 @@ export function buildFunctionAst(ctx: FunctionContext): FunctionNode {
     ctx.IDENT().getText(),
     ctx.params().param().map(buildParamAst),
     buildReturnTypeAst(ctx.returnType()),
-    ctx.statement().map(buildStatementAst),
+    orderContexts([...ctx.statement(), ...ctx.declaration()]).map((item) =>
+      item instanceof StatementContext
+        ? buildStatementAst(item)
+        : buildDeclareAst(item),
+    ),
     location(ctx),
   );
 }
@@ -223,7 +238,7 @@ export function buildReturnAst(ctx: ReturnContext): ReturnNode {
   );
 }
 
-export function buildDeclareAst(ctx: DeclareContext): DeclareNode {
+export function buildDeclareAst(ctx: DeclarationContext): DeclareNode {
   const initExpr = ctx.expr();
   const type = getDeclaredType(ctx);
   const domainContext = ctx.domain();
@@ -243,7 +258,7 @@ export function buildDeclareAst(ctx: DeclareContext): DeclareNode {
   );
 }
 
-function getDeclaredType(ctx: DeclareContext): string {
+function getDeclaredType(ctx: DeclarationContext): string {
   const type = ctx.getChild(0)?.getText();
   if (type === undefined) {
     throw new Error(`宣言の型が見つかりません: ${ctx.getText()}`);
@@ -417,6 +432,16 @@ function isCompareOperator(
     value === "<=" ||
     value === ">="
   );
+}
+
+function orderContexts<
+  T extends StatementContext | FunctionContext | DeclarationContext,
+>(contexts: T[]): T[] {
+  return [...contexts].sort((left: T, right: T) => {
+    const leftIndex = left.start?.tokenIndex ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = right.start?.tokenIndex ?? Number.MAX_SAFE_INTEGER;
+    return leftIndex - rightIndex;
+  });
 }
 
 function getStatementsBetween(
