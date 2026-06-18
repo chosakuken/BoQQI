@@ -6,6 +6,7 @@ import { createParserCommand } from "./commands/parse.js";
 import { createAstDumpCommand } from "./commands/ast-dump.js";
 import { createInterpreteCommand } from "./commands/interprete.js";
 import { createRunCommand } from "./commands/run.js";
+import { createCompileCommand } from "./commands/compile.js";
 
 export function createCli(): Command {
   const program = new Command();
@@ -23,6 +24,7 @@ export function createCli(): Command {
   program.addCommand(createAstDumpCommand());
   program.addCommand(createInterpreteCommand());
   program.addCommand(createRunCommand());
+  program.addCommand(createCompileCommand());
 
   return program;
 }
