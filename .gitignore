@@ -2,3 +2,6 @@ node_modules/
 dist/
 # 生成物を無視
 out/
+# codex に読み込ませるディレクトリ
+codex/
+.codex/
