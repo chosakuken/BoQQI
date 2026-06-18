@@ -1,7 +1,6 @@
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
-import { parseToAst } from "../lib/ast/parseToAst.js";
 import {
   BoqqiRuntimeError,
   formatRuntimeError,
@@ -10,32 +9,46 @@ import {
   BoqqiSemanticError,
   formatSemanticError,
 } from "../lib/diagnostics/semanticError.js";
-import { compile } from "../lib/visitor/compiler/compile.js";
-import { semanticAnalyze } from "../lib/visitor/semantics/analyze.js";
+import { bytecodeFromJson } from "../lib/vm/bytecodeJson.js";
 import { BoqqiVM } from "../lib/vm/vm.js";
 
 export function createRunCommand(): Command {
   return new Command("run")
     .description("")
-    .argument("<file>", "source file path")
+    .argument("<file>", "bytecode JSON file path")
     .action(async (file: string) => {
-      const source = await readFile(file, "utf-8");
+      const bytecodeJson = await readFile(file, "utf-8");
       try {
-        const ast = parseToAst(source);
-        semanticAnalyze(ast);
-        const bytecode = compile(ast);
+        const bytecode = bytecodeFromJson(JSON.parse(bytecodeJson));
         const vm = new BoqqiVM(bytecode, (txt: string) => {
           process.stdout.write(txt);
         });
         vm.run();
       } catch (error) {
+        if (error instanceof SyntaxError) {
+          process.stderr.write(`Invalid bytecode JSON: ${error.message}\n`);
+          process.exitCode = 1;
+          return;
+        }
+        if (
+          error instanceof Error &&
+          error.message.startsWith("bytecode JSON ")
+        ) {
+          process.stderr.write(`Invalid bytecode JSON: ${error.message}\n`);
+          process.exitCode = 1;
+          return;
+        }
         if (error instanceof BoqqiSemanticError) {
-          process.stderr.write(`${formatSemanticError(error, source, file)}\n`);
+          process.stderr.write(
+            `${formatSemanticError(error, bytecodeJson, file)}\n`,
+          );
           process.exitCode = 1;
           return;
         }
         if (error instanceof BoqqiRuntimeError) {
-          process.stderr.write(`${formatRuntimeError(error, source, file)}\n`);
+          process.stderr.write(
+            `${formatRuntimeError(error, bytecodeJson, file)}\n`,
+          );
           process.exitCode = 1;
           return;
         }
