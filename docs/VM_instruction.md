@@ -9,8 +9,8 @@
 | `PUSH_VOID` | なし | `void` 値をスタックに積む |
 | `LOAD` | `slot: number`, `name: string`, `scope: "local" \| "global"` | 指定したスコープのローカル変数を読み出してスタックに積む |
 | `STORE` | `slot: number`, `name: string`, `scope: "local" \| "global"` | スタックから値を取り出し、指定したスコープのローカル変数へ代入する |
-| `DECLARE` | `slot: number`, `name: string`, `type: ValueType`, `hasDomain: boolean` | ローカル変数を宣言し、スタック上の初期値を保存する。`hasDomain` が `true` の場合は範囲チェックも行う |
-| `CHECK_LOCAL` | `slot: number`, `name: string`, `type: ValueType`, `hasDomain: boolean` | 既存のローカル変数を検査する。主に関数引数の domain チェックに使う |
+| `DECLARE` | `slot: number`, `name: string` | ローカル変数を宣言し、スタック上の初期値を保存する |
+| `ASSERT_DOMAIN` | `name: string`, `kind: "variable" \| "parameter" \| "return"` | スタック上の `value`, `max`, `min` を取り出して定義域チェックを行い、成功時は `value` を積み直す |
 | `ADD` | なし | スタックから 2 値を取り出して加算し、結果を積む |
 | `SUB` | なし | スタックから 2 値を取り出して減算し、結果を積む |
 | `MUL` | なし | スタックから 2 値を取り出して乗算し、結果を積む |

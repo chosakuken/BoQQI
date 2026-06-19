@@ -10,25 +10,16 @@ import {
 import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
 import {
   BytecodeProgram,
-  DomainSpec,
   Instruction,
   LocalScope,
   ValueType,
 } from "./instruction.js";
 
-interface LocalSlot {
-  name?: string;
-  type?: ValueType;
-  domain?: DomainSpec;
-  runtimeValue?: RuntimeValue;
-}
-
 interface CallFrame {
   readonly functionName: string;
   readonly returnPc: number;
-  readonly locals: LocalSlot[];
+  readonly locals: RuntimeValue[];
   readonly returnType: ValueType;
-  readonly hasReturnDomain: boolean;
 }
 
 type BuiltinFunc = (args: RuntimeValue[]) => RuntimeValue;
@@ -49,7 +40,6 @@ export class BoqqiVM {
       returnPc: -1,
       locals: this.createLocalSlots(program.globalLocalCount),
       returnType: "int",
-      hasReturnDomain: false,
     });
 
     this.funcs.set("print", (args: RuntimeValue[]) => {
@@ -114,21 +104,10 @@ export class BoqqiVM {
         );
         break;
       case "DECLARE":
-        this.declareLocal(
-          instruction.slot,
-          instruction.name,
-          instruction.type,
-          this.pop(),
-          this.popDomain(instruction.name, instruction.hasDomain),
-        );
+        this.declareLocal(instruction.slot, instruction.name, this.pop());
         break;
-      case "CHECK_LOCAL":
-        this.checkLocal(
-          instruction.slot,
-          instruction.name,
-          instruction.type,
-          this.popDomain(instruction.name, instruction.hasDomain),
-        );
+      case "ASSERT_DOMAIN":
+        this.assertDomain(instruction.name, instruction.kind);
         break;
       case "ADD":
       case "SUB":
@@ -247,38 +226,8 @@ export class BoqqiVM {
     }
   }
 
-  private declareLocal(
-    slot: number,
-    name: string,
-    type: ValueType,
-    value: RuntimeValue,
-    domain: DomainSpec | undefined,
-  ): void {
-    const local = this.localSlot(this.currentFrame(), slot, name);
-
-    this.assertWithinDomain(name, value, domain);
-    local.name = name;
-    local.type = type;
-    local.domain = domain;
-    local.runtimeValue = value;
-  }
-
-  private checkLocal(
-    slot: number,
-    name: string,
-    type: ValueType,
-    domain: DomainSpec | undefined,
-  ): void {
-    const local = this.localSlot(this.currentFrame(), slot, name);
-    const value = this.assumeDefined(
-      local.runtimeValue,
-      `Internal VM error: uninitialized local ${name}`,
-    );
-
-    this.assertWithinDomain(name, value, domain);
-    local.name = name;
-    local.type = type;
-    local.domain = domain;
+  private declareLocal(slot: number, name: string, value: RuntimeValue): void {
+    this.setLocal(this.currentFrame(), slot, name, value);
   }
 
   private storeLocal(
@@ -287,10 +236,7 @@ export class BoqqiVM {
     name: string,
     value: RuntimeValue,
   ): void {
-    const local = this.localSlot(this.frameForScope(scope), slot, name);
-
-    this.assertWithinDomain(name, value, local.domain);
-    local.runtimeValue = value;
+    this.setLocal(this.frameForScope(scope), slot, name, value);
   }
 
   private loadLocal(
@@ -298,11 +244,7 @@ export class BoqqiVM {
     slot: number,
     name: string,
   ): RuntimeValue {
-    const local = this.localSlot(this.frameForScope(scope), slot, name);
-    return this.assumeDefined(
-      local.runtimeValue,
-      `Internal VM error: uninitialized local ${name}`,
-    );
+    return this.localSlot(this.frameForScope(scope), slot, name);
   }
 
   private jump(target: number): void {
@@ -336,11 +278,7 @@ export class BoqqiVM {
 
     const locals = this.createLocalSlots(func.localCount);
     for (const [index, param] of func.params.entries()) {
-      locals[param.slot] = {
-        name: param.name,
-        type: param.type,
-        runtimeValue: args[index],
-      };
+      locals[param.slot] = args[index];
     }
 
     this.frames.push({
@@ -348,19 +286,12 @@ export class BoqqiVM {
       returnPc: this.pc,
       locals,
       returnType: func.returnType,
-      hasReturnDomain: func.hasReturnDomain,
     });
     this.jump(func.entryPc);
   }
 
   private returnFromFunction(): void {
-    const currentFrame = this.currentFrame();
-    const domain = this.popDomain(
-      currentFrame.functionName,
-      currentFrame.hasReturnDomain,
-    );
     const value = this.pop();
-    this.assertReturnWithinDomain(currentFrame.functionName, value, domain);
 
     const frame = this.frames.pop();
     if (frame === undefined) {
@@ -380,18 +311,22 @@ export class BoqqiVM {
     return value;
   }
 
-  private popDomain(name: string, hasDomain: boolean): DomainSpec | undefined {
-    if (!hasDomain) {
-      return undefined;
-    }
-
+  private assertDomain(
+    name: string,
+    kind: "variable" | "parameter" | "return",
+  ): void {
     const min = this.pop();
     const max = this.pop();
+    const value = this.pop();
+    const numericValue = value.value as number;
+    const minValue = min.value as number;
+    const maxValue = max.value as number;
 
-    return {
-      max: max.value as number,
-      min: min.value as number,
-    };
+    if (numericValue < minValue || numericValue > maxValue) {
+      this.failDomain(name, kind, numericValue, minValue, maxValue);
+    }
+
+    this.stack.push(value);
   }
 
   private numericResultType(
@@ -411,35 +346,26 @@ export class BoqqiVM {
     return new FloatValue(value);
   }
 
-  private assertWithinDomain(
+  private failDomain(
     name: string,
-    value: RuntimeValue,
-    domain: DomainSpec | undefined,
+    kind: "variable" | "parameter" | "return",
+    value: number,
+    min: number,
+    max: number,
   ): void {
-    if (domain === undefined) {
-      return;
-    }
-    const numericValue = value.value as number;
-    if (numericValue < domain.min || numericValue > domain.max) {
-      this.fail(
-        `変数 ${name} に定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(numericValue)} が代入されようとしました`,
-      );
-    }
-  }
-
-  private assertReturnWithinDomain(
-    name: string,
-    value: RuntimeValue,
-    domain: DomainSpec | undefined,
-  ): void {
-    if (domain === undefined) {
-      return;
-    }
-    const numericValue = value.value as number;
-    if (numericValue < domain.min || numericValue > domain.max) {
-      this.fail(
-        `関数 ${name} の戻り値として定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(numericValue)} が返されました`,
-      );
+    switch (kind) {
+      case "variable":
+        return this.fail(
+          `変数 ${name} に定義域 [${String(min)}, ${String(max)}] 外の値 ${String(value)} が代入されようとしました`,
+        );
+      case "parameter":
+        return this.fail(
+          `引数 ${name} に定義域 [${String(min)}, ${String(max)}] 外の値 ${String(value)} が渡されました`,
+        );
+      case "return":
+        return this.fail(
+          `関数 ${name} の戻り値として定義域 [${String(min)}, ${String(max)}] 外の値 ${String(value)} が返されました`,
+        );
     }
   }
 
@@ -472,15 +398,34 @@ export class BoqqiVM {
     return value;
   }
 
-  private localSlot(frame: CallFrame, slot: number, name: string): LocalSlot {
+  private localSlot(
+    frame: CallFrame,
+    slot: number,
+    name: string,
+  ): RuntimeValue {
     if (!Number.isInteger(slot) || slot < 0 || slot >= frame.locals.length) {
       this.fail(`変数 ${name} の slot ${String(slot)} は不正です`);
     }
-    return frame.locals[slot];
+    return this.assumeDefined(
+      frame.locals[slot],
+      `Internal VM error: uninitialized local ${name}`,
+    );
   }
 
-  private createLocalSlots(count: number): LocalSlot[] {
-    return Array.from({ length: count }, () => ({}));
+  private setLocal(
+    frame: CallFrame,
+    slot: number,
+    name: string,
+    value: RuntimeValue,
+  ): void {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= frame.locals.length) {
+      this.fail(`変数 ${name} の slot ${String(slot)} は不正です`);
+    }
+    frame.locals[slot] = value;
+  }
+
+  private createLocalSlots(count: number): RuntimeValue[] {
+    return new Array<RuntimeValue>(count);
   }
 
   private fail(message: string): never {

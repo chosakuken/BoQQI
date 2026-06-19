@@ -3,7 +3,7 @@ import { BinaryNode } from "../../ast/nodes/binary.js";
 import { BoolNode } from "../../ast/nodes/bool.js";
 import { CallNode } from "../../ast/nodes/call.js";
 import { CompareNode } from "../../ast/nodes/compare.js";
-import { DeclareNode } from "../../ast/nodes/declare.js";
+import { DeclareNode, DomainNode } from "../../ast/nodes/declare.js";
 import { FloatNode } from "../../ast/nodes/float.js";
 import {
   FunctionNode,
@@ -33,6 +33,7 @@ interface LocalSymbol {
   readonly name: string;
   readonly slot: number;
   readonly type: ValueType;
+  readonly domain?: DomainNode;
 }
 
 interface CompileContext {
@@ -150,6 +151,12 @@ class BoqqiCompiler implements Visitor<void> {
   visitAssign(node: AssignNode): void {
     const resolved = this.resolveLocal(node.name);
     node.expr.accept(this);
+    this.emitDomainAssertion(
+      resolved.symbol.domain,
+      resolved.symbol.name,
+      "variable",
+      node,
+    );
     this.emit(
       {
         op: "STORE",
@@ -163,26 +170,20 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitDeclare(node: DeclareNode): void {
     const type = this.valueType(node.type);
-    const symbol = this.allocateLocal(node.name, type);
-
-    if (node.domain !== undefined) {
-      node.domain.max.accept(this);
-      node.domain.min.accept(this);
-    }
+    const symbol = this.allocateLocal(node.name, type, node.domain);
 
     if (node.initValue !== undefined) {
       node.initValue.accept(this);
     } else {
       this.emitDefaultValue(type, node);
     }
+    this.emitDomainAssertion(node.domain, node.name, "variable", node);
 
     this.emit(
       {
         op: "DECLARE",
         slot: symbol.slot,
         name: symbol.name,
-        type,
-        hasDomain: node.domain !== undefined,
       },
       node,
     );
@@ -272,21 +273,17 @@ class BoqqiCompiler implements Visitor<void> {
         );
       }
 
-      if (param.domain !== undefined) {
-        param.domain.max.accept(this);
-        param.domain.min.accept(this);
-      }
-
       this.emit(
         {
-          op: "CHECK_LOCAL",
+          op: "LOAD",
           slot: symbol.slot,
           name: symbol.name,
-          type: symbol.type,
-          hasDomain: param.domain !== undefined,
+          scope: "local",
         },
         node,
       );
+      this.emitDomainAssertion(param.domain, param.name, "parameter", node);
+      this.emit({ op: "POP" }, node);
     }
 
     for (const statement of node.body) {
@@ -304,7 +301,6 @@ class BoqqiCompiler implements Visitor<void> {
       localCount: functionContext.localCount,
       params,
       returnType: this.valueType(node.returnType.type),
-      hasReturnDomain: node.returnType.domain !== undefined,
     });
 
     this.context = previousContext;
@@ -373,33 +369,53 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   private emitReturn(returnType: ReturnTypeNode, node: AstNode): void {
-    if (returnType.domain !== undefined) {
-      returnType.domain.max.accept(this);
-      returnType.domain.min.accept(this);
+    this.emitDomainAssertion(
+      returnType.domain,
+      this.context.name,
+      "return",
+      node,
+    );
+    this.emit({ op: "RETURN" }, node);
+  }
+
+  private emitDomainAssertion(
+    domain: DomainNode | undefined,
+    name: string,
+    kind: "variable" | "parameter" | "return",
+    node: AstNode,
+  ): void {
+    if (domain === undefined) {
+      return;
     }
 
-    this.emit({ op: "RETURN" }, node);
+    domain.max.accept(this);
+    domain.min.accept(this);
+    this.emit({ op: "ASSERT_DOMAIN", name, kind }, node);
   }
 
   private allocateParams(params: ParamNode[]): ParamInfo[] {
     return params.map((param) => {
       const type = this.valueType(param.type);
-      const symbol = this.allocateLocal(param.name, type);
+      const symbol = this.allocateLocal(param.name, type, param.domain);
 
       return {
         name: param.name,
         slot: symbol.slot,
         type,
-        hasDomain: param.domain !== undefined,
       };
     });
   }
 
-  private allocateLocal(name: string, type: ValueType): LocalSymbol {
+  private allocateLocal(
+    name: string,
+    type: ValueType,
+    domain?: DomainNode,
+  ): LocalSymbol {
     const symbol = {
       name,
       slot: this.context.localCount,
       type,
+      domain,
     };
 
     this.context.locals.set(name, symbol);

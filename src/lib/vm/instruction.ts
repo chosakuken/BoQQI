@@ -2,11 +2,6 @@ import { SourceLocation } from "../diagnostics/sourceLocation.js";
 
 export type ValueType = "int" | "float" | "string" | "bool" | "void";
 
-export interface DomainSpec {
-  readonly min: number;
-  readonly max: number;
-}
-
 export interface LocalInfo {
   readonly name: string;
   readonly type: ValueType;
@@ -14,7 +9,6 @@ export interface LocalInfo {
 
 export interface ParamInfo extends LocalInfo {
   readonly slot: number;
-  readonly hasDomain: boolean;
 }
 
 export interface CompiledFunction {
@@ -24,7 +18,6 @@ export interface CompiledFunction {
   readonly localCount: number;
   readonly params: ParamInfo[];
   readonly returnType: ValueType;
-  readonly hasReturnDomain: boolean;
 }
 
 export interface BytecodeProgram {
@@ -59,15 +52,11 @@ export type Instruction = {
       readonly op: "DECLARE";
       readonly slot: number;
       readonly name: string;
-      readonly type: ValueType;
-      readonly hasDomain: boolean;
     }
   | {
-      readonly op: "CHECK_LOCAL";
-      readonly slot: number;
+      readonly op: "ASSERT_DOMAIN";
       readonly name: string;
-      readonly type: ValueType;
-      readonly hasDomain: boolean;
+      readonly kind: "variable" | "parameter" | "return";
     }
   | { readonly op: "ADD" }
   | { readonly op: "SUB" }

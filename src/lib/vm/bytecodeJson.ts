@@ -63,8 +63,7 @@ function isCompiledFunction(value: unknown): value is CompiledFunction {
     Number.isInteger(value.arity) &&
     Number.isInteger(value.localCount) &&
     Array.isArray(value.params) &&
-    typeof value.returnType === "string" &&
-    typeof value.hasReturnDomain === "boolean"
+    typeof value.returnType === "string"
   );
 }
 
