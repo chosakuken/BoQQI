@@ -1,8 +1,8 @@
-int{max: 10000, min: 0} a = 114;
-int{max: 10000, min: 0} b = 514;
+int{max: 100, min: 0} a = 10;
+int{max: 100, min: 0} b = 20;
 
-if(a == b) {
-    print("a と b は同じ値です");
+if (a == b) {
+    print("a と b は等しいです");
 } else {
     if (a > b) {
         print("a の方が大きいです");
