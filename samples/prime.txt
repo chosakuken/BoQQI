@@ -1,0 +1,18 @@
+function isPrime(int{max: 1000, min: 0} n): bool {
+    int{max: n, min: 2} i = 2;
+    while(i < n) {
+        if (n % i == 0) {
+            return false;
+        }
+        i = i + 1;
+    }
+    return true;
+}
+
+int{max: 1000, min: 0} a = 13;
+
+if (isPrime(a)) {
+    print("a は素数です");
+} else {
+    print("a は素数ではありません");
+}

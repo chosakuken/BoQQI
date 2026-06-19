@@ -1,0 +1,12 @@
+int{max: 100, min: 0} a = 10;
+int{max: 100, min: 0} b = 20;
+
+if (a == b) {
+    print("a と b は等しいです");
+} else {
+    if (a > b) {
+        print("a の方が大きいです");
+    } else {
+        print("b の方が大きいです");
+    }
+}
