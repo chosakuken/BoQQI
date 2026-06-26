@@ -6,6 +6,7 @@ ANTLR による字句解析・構文解析、AST 生成、意味解析、イン�
 ## Features
 
 - `int` / `float` / `string` / `bool` / `void` の型をサポート
+- `int[3]` などの固定長配列と `array[index]` による添え字アクセス
 - 数値型に対する範囲指定 `{max: ..., min: ...}` の記述
 - 変数宣言、代入、四則演算、比較演算
 - `if` / `else`、`while`
