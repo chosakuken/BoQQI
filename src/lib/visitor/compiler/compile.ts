@@ -11,6 +11,7 @@ import {
   ReturnTypeNode,
 } from "../../ast/nodes/function.js";
 import { IfNode } from "../../ast/nodes/if.js";
+import { IndexNode } from "../../ast/nodes/index.js";
 import { IntNode } from "../../ast/nodes/int.js";
 import { AstNode } from "../../ast/nodes/node.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
@@ -25,6 +26,7 @@ import {
   Instruction,
   LocalScope,
   ParamInfo,
+  ScalarValueType,
   ValueType,
 } from "../../vm/instruction.js";
 import { Visitor } from "../visitor.js";
@@ -33,6 +35,7 @@ interface LocalSymbol {
   readonly name: string;
   readonly slot: number;
   readonly type: ValueType;
+  readonly arrayLength?: number;
 }
 
 interface CompileContext {
@@ -149,6 +152,22 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitAssign(node: AssignNode): void {
     const resolved = this.resolveLocal(node.name);
+    if (node.index !== undefined) {
+      const length = this.arrayLength(resolved.symbol);
+      node.index.accept(this);
+      node.expr.accept(this);
+      this.emit(
+        {
+          op: "STORE_INDEX",
+          slot: resolved.symbol.slot,
+          name: resolved.symbol.name,
+          scope: resolved.scope,
+          length,
+        },
+        node,
+      );
+      return;
+    }
     node.expr.accept(this);
     this.emit(
       {
@@ -163,11 +182,35 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitDeclare(node: DeclareNode): void {
     const type = this.valueType(node.type);
-    const symbol = this.allocateLocal(node.name, type);
+    const symbol = this.allocateLocal(node.name, type, node.arrayLength);
 
     if (node.domain !== undefined) {
       node.domain.max.accept(this);
       node.domain.min.accept(this);
+    }
+
+    if (this.isArrayType(type)) {
+      if (node.initValue !== undefined) {
+        throw new Error(`配列 ${node.name} は一括初期化できません`);
+      }
+
+      const length = this.arrayLength(symbol);
+      const elementType = this.arrayElementType(type);
+      for (let index = 0; index < length; index += 1) {
+        this.emitDefaultValue(elementType, node);
+      }
+      this.emit(
+        {
+          op: "DECLARE_ARRAY",
+          slot: symbol.slot,
+          name: symbol.name,
+          elementType,
+          length,
+          hasDomain: node.domain !== undefined,
+        },
+        node,
+      );
+      return;
     }
 
     if (node.initValue !== undefined) {
@@ -190,12 +233,34 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitVar(node: VarNode): void {
     const resolved = this.resolveLocal(node.name);
+    if (this.isArrayType(resolved.symbol.type)) {
+      throw new Error(`配列 ${node.name} は値として読み出せません`);
+    }
     this.emit(
       {
         op: "LOAD",
         slot: resolved.symbol.slot,
         name: resolved.symbol.name,
         scope: resolved.scope,
+      },
+      node,
+    );
+  }
+
+  visitIndex(node: IndexNode): void {
+    if (!(node.target instanceof VarNode)) {
+      throw new Error("添え字アクセスの対象には配列変数が必要です");
+    }
+    const resolved = this.resolveLocal(node.target.name);
+    const length = this.arrayLength(resolved.symbol);
+    node.index.accept(this);
+    this.emit(
+      {
+        op: "LOAD_INDEX",
+        slot: resolved.symbol.slot,
+        name: resolved.symbol.name,
+        scope: resolved.scope,
+        length,
       },
       node,
     );
@@ -366,6 +431,11 @@ class BoqqiCompiler implements Visitor<void> {
       case "bool":
         this.emit({ op: "PUSH_BOOL", value: false }, node);
         break;
+      case "int[]":
+      case "float[]":
+      case "string[]":
+      case "bool[]":
+        throw new Error(`配列型 ${type} は値として生成できません`);
       case "void":
         this.emit({ op: "PUSH_VOID" }, node);
         break;
@@ -395,15 +465,20 @@ class BoqqiCompiler implements Visitor<void> {
     });
   }
 
-  private allocateLocal(name: string, type: ValueType): LocalSymbol {
+  private allocateLocal(
+    name: string,
+    type: ValueType,
+    arrayLength?: number,
+  ): LocalSymbol {
     const symbol = {
       name,
       slot: this.context.localCount,
       type,
+      arrayLength,
     };
 
     this.context.locals.set(name, symbol);
-    this.context.localCount += 1;
+    this.context.localCount += arrayLength ?? 1;
     return symbol;
   }
 
@@ -430,10 +505,34 @@ class BoqqiCompiler implements Visitor<void> {
       case "float":
       case "string":
       case "bool":
+      case "int[]":
+      case "float[]":
+      case "string[]":
+      case "bool[]":
       case "void":
         return type;
       default:
         throw new Error(`型 ${type} は存在しません`);
     }
+  }
+
+  private isArrayType(type: ValueType): type is `${ScalarValueType}[]` {
+    return (
+      type === "int[]" ||
+      type === "float[]" ||
+      type === "string[]" ||
+      type === "bool[]"
+    );
+  }
+
+  private arrayElementType(type: `${ScalarValueType}[]`): ScalarValueType {
+    return type.slice(0, -2) as ScalarValueType;
+  }
+
+  private arrayLength(symbol: LocalSymbol): number {
+    if (!this.isArrayType(symbol.type) || symbol.arrayLength === undefined) {
+      throw new Error(`変数 ${symbol.name} は配列型ではありません`);
+    }
+    return symbol.arrayLength;
   }
 }

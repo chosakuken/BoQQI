@@ -35,6 +35,8 @@ LPAREN : '(' ;
 RPAREN : ')' ;
 LBRACE : '{' ;
 RBRACE : '}' ;
+LBRACK : '[' ;
+RBRACK : ']' ;
 COMMA : ',' ;
 COLON : ':' ;
 SEMI : ';' ;

@@ -6,6 +6,7 @@ import {
   IntValue,
   StringValue,
   VoidValue,
+  runtimeValueToString,
 } from "../visitor/interpreter/runtimeValue/valuableValue.js";
 import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
 import {
@@ -13,6 +14,7 @@ import {
   DomainSpec,
   Instruction,
   LocalScope,
+  ScalarValueType,
   ValueType,
 } from "./instruction.js";
 
@@ -54,7 +56,7 @@ export class BoqqiVM {
 
     this.funcs.set("print", (args: RuntimeValue[]) => {
       for (const arg of args) {
-        this.output(`${String(arg.value)}\n`);
+        this.output(`${runtimeValueToString(arg)}\n`);
       }
       return new IntValue(0);
     });
@@ -122,6 +124,16 @@ export class BoqqiVM {
           this.popDomain(instruction.name, instruction.hasDomain),
         );
         break;
+      case "DECLARE_ARRAY":
+        this.declareArrayLocal(
+          instruction.slot,
+          instruction.name,
+          instruction.elementType,
+          instruction.length,
+          this.popArrayValues(instruction.name, instruction.length),
+          this.popDomain(instruction.name, instruction.hasDomain),
+        );
+        break;
       case "CHECK_LOCAL":
         this.checkLocal(
           instruction.slot,
@@ -144,6 +156,22 @@ export class BoqqiVM {
       case "GE":
       case "LE":
         this.executeCompare(instruction.op);
+        break;
+      case "LOAD_INDEX":
+        this.executeLoadIndex(
+          instruction.scope,
+          instruction.slot,
+          instruction.name,
+          instruction.length,
+        );
+        break;
+      case "STORE_INDEX":
+        this.executeStoreIndex(
+          instruction.scope,
+          instruction.slot,
+          instruction.name,
+          instruction.length,
+        );
         break;
       case "JUMP":
         this.jump(instruction.target);
@@ -247,6 +275,50 @@ export class BoqqiVM {
     }
   }
 
+  private executeLoadIndex(
+    scope: LocalScope,
+    slot: number,
+    name: string,
+    length: number,
+  ): void {
+    const index = this.pop();
+    const indexValue = this.indexValue(name, index, length);
+    const local = this.localSlot(
+      this.frameForScope(scope),
+      slot + indexValue,
+      `${name}[${String(indexValue)}]`,
+    );
+    this.stack.push(
+      this.assumeDefined(
+        local.runtimeValue,
+        `Internal VM error: uninitialized local ${name}[${String(indexValue)}]`,
+      ),
+    );
+  }
+
+  private executeStoreIndex(
+    scope: LocalScope,
+    slot: number,
+    name: string,
+    length: number,
+  ): void {
+    const value = this.pop();
+    const index = this.pop();
+    const indexValue = this.indexValue(name, index, length);
+    const local = this.localSlot(
+      this.frameForScope(scope),
+      slot + indexValue,
+      `${name}[${String(indexValue)}]`,
+    );
+
+    this.assertWithinDomain(
+      `${name}[${String(indexValue)}]`,
+      value,
+      local.domain,
+    );
+    local.runtimeValue = value;
+  }
+
   private declareLocal(
     slot: number,
     name: string,
@@ -261,6 +333,35 @@ export class BoqqiVM {
     local.type = type;
     local.domain = domain;
     local.runtimeValue = value;
+  }
+
+  private declareArrayLocal(
+    slot: number,
+    name: string,
+    elementType: ScalarValueType,
+    length: number,
+    values: RuntimeValue[],
+    domain: DomainSpec | undefined,
+  ): void {
+    if (!Number.isInteger(length) || length < 0) {
+      this.fail(`配列 ${name} の長さ ${String(length)} は不正です`);
+    }
+
+    const frame = this.currentFrame();
+    for (let index = 0; index < length; index += 1) {
+      const elementName = `${name}[${String(index)}]`;
+      const value = this.assumeDefined(
+        values[index],
+        `Internal VM error: missing initial value ${elementName}`,
+      );
+      const local = this.localSlot(frame, slot + index, elementName);
+
+      this.assertWithinDomain(elementName, value, domain);
+      local.name = elementName;
+      local.type = elementType;
+      local.domain = domain;
+      local.runtimeValue = value;
+    }
   }
 
   private checkLocal(
@@ -394,6 +495,18 @@ export class BoqqiVM {
     };
   }
 
+  private popArrayValues(name: string, length: number): RuntimeValue[] {
+    if (!Number.isInteger(length) || length < 0) {
+      this.fail(`配列 ${name} の長さ ${String(length)} は不正です`);
+    }
+
+    const values = this.stack.splice(this.stack.length - length, length);
+    if (values.length !== length) {
+      this.fail(`配列 ${name} の初期値が不足しています`);
+    }
+    return values;
+  }
+
   private numericResultType(
     left: RuntimeValue,
     right: RuntimeValue,
@@ -451,6 +564,28 @@ export class BoqqiVM {
     ) {
       this.fail(`ジャンプ先 ${String(target)} は不正です`);
     }
+  }
+
+  private indexValue(
+    name: string,
+    index: RuntimeValue,
+    length: number,
+  ): number {
+    if (
+      index.type !== "int" ||
+      typeof index.value !== "number" ||
+      !Number.isInteger(index.value)
+    ) {
+      this.fail("配列の添え字には int 型が必要です");
+    }
+
+    const indexValue = index.value;
+    if (indexValue < 0 || indexValue >= length) {
+      this.fail(
+        `配列 ${name} の添え字 ${String(indexValue)} は範囲外です (長さ ${String(length)})`,
+      );
+    }
+    return indexValue;
   }
 
   private frameForScope(scope: LocalScope): CallFrame {

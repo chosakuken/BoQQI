@@ -7,6 +7,7 @@ import { DeclareNode } from "../ast/nodes/declare.js";
 import { FloatNode } from "../ast/nodes/float.js";
 import { FunctionNode } from "../ast/nodes/function.js";
 import { IfNode } from "../ast/nodes/if.js";
+import { IndexNode } from "../ast/nodes/index.js";
 import { IntNode } from "../ast/nodes/int.js";
 import { ProgramNode } from "../ast/nodes/program.js";
 import { ReturnNode } from "../ast/nodes/return.js";
@@ -27,6 +28,7 @@ export interface Visitor<T> {
   visitAssign(node: AssignNode): T;
   visitDeclare(node: DeclareNode): T;
   visitVar(node: VarNode): T;
+  visitIndex(node: IndexNode): T;
   visitIf(node: IfNode): T;
   visitWhile(node: WhileNode): T;
   visitFunction(node: FunctionNode): T;

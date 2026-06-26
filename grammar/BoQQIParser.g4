@@ -62,6 +62,7 @@ declaration
     | numericType domain IDENT EQUAL expr
     | nonNumericType IDENT
     | nonNumericType IDENT EQUAL expr
+    | arrayType domain? IDENT
     ;
 
 domain
@@ -69,10 +70,20 @@ domain
     ;
 
 assign
-    : IDENT EQUAL expr
+    : IDENT (LBRACK expr RBRACK)? EQUAL expr
     ;
 
 type
+    : numericType
+    | nonNumericType
+    | arrayType
+    ;
+
+arrayType
+    : elementType LBRACK INT RBRACK
+    ;
+
+elementType
     : numericType
     | nonNumericType
     ;
@@ -88,7 +99,8 @@ nonNumericType
     ;
 
 expr
-    : expr op=(MUL | DIV | MOD) expr    # MulDiv
+    : expr LBRACK expr RBRACK           # Index
+    | expr op=(MUL | DIV | MOD) expr    # MulDiv
     | expr op=(PLUS | MINUS) expr       # AddSub
     | expr op=(GE | LE | GT | LT) expr  # comp
     | expr op=(EQ | NE) expr            # eq

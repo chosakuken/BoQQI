@@ -17,6 +17,8 @@ import { DeclarationContext } from "./BoQQIParser.js";
 import { DomainContext } from "./BoQQIParser.js";
 import { AssignContext } from "./BoQQIParser.js";
 import { TypeContext } from "./BoQQIParser.js";
+import { ArrayTypeContext } from "./BoQQIParser.js";
+import { ElementTypeContext } from "./BoQQIParser.js";
 import { NumericTypeContext } from "./BoQQIParser.js";
 import { NonNumericTypeContext } from "./BoQQIParser.js";
 import { ParensContext } from "./BoQQIParser.js";
@@ -30,6 +32,7 @@ import { MulDivContext } from "./BoQQIParser.js";
 import { AddSubContext } from "./BoQQIParser.js";
 import { CompContext } from "./BoQQIParser.js";
 import { EqContext } from "./BoQQIParser.js";
+import { IndexContext } from "./BoQQIParser.js";
 import { BooleanContext } from "./BoQQIParser.js";
 
 
@@ -189,6 +192,26 @@ export class BoQQIParserListener implements ParseTreeListener {
      */
     exitType?: (ctx: TypeContext) => void;
     /**
+     * Enter a parse tree produced by `BoQQIParser.arrayType`.
+     * @param ctx the parse tree
+     */
+    enterArrayType?: (ctx: ArrayTypeContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.arrayType`.
+     * @param ctx the parse tree
+     */
+    exitArrayType?: (ctx: ArrayTypeContext) => void;
+    /**
+     * Enter a parse tree produced by `BoQQIParser.elementType`.
+     * @param ctx the parse tree
+     */
+    enterElementType?: (ctx: ElementTypeContext) => void;
+    /**
+     * Exit a parse tree produced by `BoQQIParser.elementType`.
+     * @param ctx the parse tree
+     */
+    exitElementType?: (ctx: ElementTypeContext) => void;
+    /**
      * Enter a parse tree produced by `BoQQIParser.numericType`.
      * @param ctx the parse tree
      */
@@ -340,6 +363,18 @@ export class BoQQIParserListener implements ParseTreeListener {
      * @param ctx the parse tree
      */
     exitEq?: (ctx: EqContext) => void;
+    /**
+     * Enter a parse tree produced by the `Index`
+     * labeled alternative in `BoQQIParser.expr`.
+     * @param ctx the parse tree
+     */
+    enterIndex?: (ctx: IndexContext) => void;
+    /**
+     * Exit a parse tree produced by the `Index`
+     * labeled alternative in `BoQQIParser.expr`.
+     * @param ctx the parse tree
+     */
+    exitIndex?: (ctx: IndexContext) => void;
     /**
      * Enter a parse tree produced by `BoQQIParser.boolean`.
      * @param ctx the parse tree

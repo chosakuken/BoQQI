@@ -6,14 +6,21 @@ import { AstNode } from "./node.js";
 export class AssignNode implements AstNode {
   readonly kind: "assign";
   readonly name: string;
+  readonly index?: ExprNode;
   readonly expr: ExprNode;
   readonly location?: SourceLocation;
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitAssign(this);
   }
-  constructor(name: string, expr: ExprNode, location?: SourceLocation) {
+  constructor(
+    name: string,
+    index: ExprNode | undefined,
+    expr: ExprNode,
+    location?: SourceLocation,
+  ) {
     this.kind = "assign";
     this.name = name;
+    this.index = index;
     this.expr = expr;
     this.location = location;
   }

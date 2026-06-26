@@ -47,3 +47,16 @@ export class VoidValue implements ValuableValue<undefined> {
     this.value = undefined;
   }
 }
+
+export function runtimeValueToString(value: ValuableValue<unknown>): string {
+  switch (typeof value.value) {
+    case "number":
+    case "boolean":
+    case "string":
+      return String(value.value);
+    case "undefined":
+      return "undefined";
+    default:
+      return "";
+  }
+}

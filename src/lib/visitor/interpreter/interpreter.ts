@@ -7,6 +7,7 @@ import {
   IntValue,
   StringValue,
   VoidValue,
+  runtimeValueToString,
 } from "./runtimeValue/valuableValue.js";
 import { BinaryNode } from "../../ast/nodes/binary.js";
 import { BoolNode } from "../../ast/nodes/bool.js";
@@ -29,13 +30,16 @@ import { BoqqiRuntimeError } from "../../diagnostics/runtimeError.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
 import { WhileNode } from "../../ast/nodes/while.js";
+import { IndexNode } from "../../ast/nodes/index.js";
 
 interface Var {
   domain?: {
     max: number;
     min: number;
   };
-  runtimeValue: RuntimeValue;
+  runtimeValue?: RuntimeValue;
+  arrayLength?: number;
+  elementType?: string;
 }
 
 interface EnvFrame {
@@ -79,7 +83,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       kind: "builtin",
       call: (args: RuntimeValue[]) => {
         for (const arg of args) {
-          this.output(`${String(arg.value)}\n`);
+          this.output(`${runtimeValueToString(arg)}\n`);
         }
         return new IntValue(0); // 正常動作として 0 を返す
       },
@@ -94,6 +98,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       return new IntValue(0); // 正常動作として 0 を返す
     });
   }
+
   visitBinary(node: BinaryNode): RuntimeValue {
     return this.withFrame(node, `binary '${node.operator}'`, () => {
       const left = node.left.accept(this);
@@ -213,7 +218,15 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.findVar(node.name),
         `Internal interpreter error: unresolved variable ${node.name}`,
       );
+      if (node.index !== undefined) {
+        const index = node.index.accept(this);
+        this.storeArrayElement(node.name, currentVar, index, value);
+        return value;
+      }
       this.assertWithinDomain(node.name, value, currentVar.domain);
+      if (currentVar.runtimeValue === undefined) {
+        this.fail(`配列 ${node.name} への一括代入はできません`);
+      }
       currentVar.runtimeValue = value;
       return value;
     });
@@ -223,6 +236,29 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       const vars = this.currentEnvFrame().vars;
       const domain =
         node.domain === undefined ? undefined : this.evalDomain(node);
+      if (this.isArrayType(node.type)) {
+        const length = node.arrayLength ?? 0;
+        const elementType = node.type.slice(0, -2);
+        vars.set(node.name, {
+          domain,
+          arrayLength: length,
+          elementType,
+        });
+        for (let index = 0; index < length; index += 1) {
+          const value = this.defaultValue(elementType);
+          this.assertWithinDomain(
+            `${node.name}[${String(index)}]`,
+            value,
+            domain,
+          );
+          vars.set(`${node.name}[${String(index)}]`, {
+            domain,
+            runtimeValue: value,
+          });
+        }
+        return new IntValue(0);
+      }
+
       const value =
         node.initValue !== undefined
           ? node.initValue.accept(this)
@@ -242,9 +278,23 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.findVar(node.name),
         `Internal interpreter error: unresolved variable ${node.name}`,
       );
+      if (variable.runtimeValue === undefined) {
+        this.fail(`配列 ${node.name} は値として読み出せません`);
+      }
       return variable.runtimeValue;
     });
   }
+
+  visitIndex(node: IndexNode): RuntimeValue {
+    return this.withFrame(node, "index", () => {
+      if (!(node.target instanceof VarNode)) {
+        this.fail("添え字アクセスの対象には配列変数が必要です");
+      }
+      const index = node.index.accept(this);
+      return this.loadArrayElement(node.target.name, index);
+    });
+  }
+
   visitIf(node: IfNode): RuntimeValue {
     return this.withFrame(node, "if", () => {
       const cond = node.cond.accept(this);
@@ -327,6 +377,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.fail(`型 ${type} は存在しません`);
     }
   }
+
   private evalDomain(node: DeclareNode): Var["domain"] {
     if (node.domain === undefined) {
       return undefined;
@@ -354,6 +405,28 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         `変数 ${name} に定義域 [${String(domain.min)}, ${String(domain.max)}] 外の値 ${String(numericValue)} が代入されようとしました`,
       );
     }
+  }
+
+  private storeArrayElement(
+    name: string,
+    variable: Var,
+    index: RuntimeValue,
+    value: RuntimeValue,
+  ): void {
+    if (variable.arrayLength === undefined) {
+      this.fail(`変数 ${name} は配列ではありません`);
+    }
+    const indexValue = this.arrayIndex(name, index, variable.arrayLength);
+    const element = this.assumeDefined(
+      this.findVar(`${name}[${String(indexValue)}]`),
+      `Internal interpreter error: unresolved variable ${name}[${String(indexValue)}]`,
+    );
+    this.assertWithinDomain(
+      `${name}[${String(indexValue)}]`,
+      value,
+      variable.domain,
+    );
+    element.runtimeValue = value;
   }
   // ユーザ定義の関数を呼び出す
   private callUserFunction(
@@ -386,7 +459,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
 
         const domain =
           param.domain === undefined ? undefined : this.evalParamDomain(param);
-        this.assertWithinDomain(param.name, variable.runtimeValue, domain);
+        this.assertWithinDomain(
+          param.name,
+          this.assumeDefined(
+            variable.runtimeValue,
+            `Internal interpreter error: uninitialized argument ${param.name}`,
+          ),
+          domain,
+        );
 
         variable.domain = domain;
       }
@@ -474,6 +554,55 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     }
 
     return this.envFrames[0].vars.get(name);
+  }
+
+  private loadArrayElement(name: string, index: RuntimeValue): RuntimeValue {
+    const variable = this.assumeDefined(
+      this.findVar(name),
+      `Internal interpreter error: unresolved variable ${name}`,
+    );
+    if (variable.arrayLength === undefined) {
+      this.fail(`変数 ${name} は配列ではありません`);
+    }
+    const indexValue = this.arrayIndex(name, index, variable.arrayLength);
+    const element = this.assumeDefined(
+      this.findVar(`${name}[${String(indexValue)}]`),
+      `Internal interpreter error: unresolved variable ${name}[${String(indexValue)}]`,
+    );
+    return this.assumeDefined(
+      element.runtimeValue,
+      `Internal interpreter error: uninitialized variable ${name}[${String(indexValue)}]`,
+    );
+  }
+
+  private arrayIndex(
+    name: string,
+    index: RuntimeValue,
+    length: number,
+  ): number {
+    if (
+      index.type !== "int" ||
+      typeof index.value !== "number" ||
+      !Number.isInteger(index.value)
+    ) {
+      this.fail(`配列の添え字には int 型が必要です`);
+    }
+    const indexValue = index.value;
+    if (indexValue < 0 || indexValue >= length) {
+      this.fail(
+        `配列 ${name} の添え字 ${String(indexValue)} は範囲外です (長さ ${String(length)})`,
+      );
+    }
+    return indexValue;
+  }
+
+  private isArrayType(type: string): boolean {
+    return (
+      type === "int[]" ||
+      type === "float[]" ||
+      type === "string[]" ||
+      type === "bool[]"
+    );
   }
 
   private currentEnvFrame(): EnvFrame {
