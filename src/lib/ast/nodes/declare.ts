@@ -12,6 +12,7 @@ export class DeclareNode implements AstNode {
   readonly kind: "declare";
   readonly type: string;
   readonly name: string;
+  readonly arrayLength?: number;
   readonly domain?: DomainNode;
   readonly initValue?: ExprNode;
   readonly location?: SourceLocation;
@@ -21,6 +22,7 @@ export class DeclareNode implements AstNode {
   constructor(
     t: string,
     n: string,
+    arrayLength?: number,
     d?: DomainNode,
     i?: ExprNode,
     location?: SourceLocation,
@@ -28,6 +30,7 @@ export class DeclareNode implements AstNode {
     this.kind = "declare";
     this.type = t;
     this.name = n;
+    this.arrayLength = arrayLength;
     this.domain = d;
     this.initValue = i;
     this.location = location;

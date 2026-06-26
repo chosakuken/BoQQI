@@ -1,11 +1,13 @@
 import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
 import { SourceFrame } from "../diagnostics/sourceLocation.js";
 import {
+  ArrayValue,
   BoolValue,
   FloatValue,
   IntValue,
   StringValue,
   VoidValue,
+  runtimeValueToString,
 } from "../visitor/interpreter/runtimeValue/valuableValue.js";
 import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
 import {
@@ -54,7 +56,7 @@ export class BoqqiVM {
 
     this.funcs.set("print", (args: RuntimeValue[]) => {
       for (const arg of args) {
-        this.output(`${String(arg.value)}\n`);
+        this.output(`${runtimeValueToString(arg)}\n`);
       }
       return new IntValue(0);
     });
@@ -100,6 +102,9 @@ export class BoqqiVM {
       case "PUSH_VOID":
         this.stack.push(new VoidValue());
         break;
+      case "PUSH_ARRAY":
+        this.pushArray(instruction.count);
+        break;
       case "LOAD":
         this.stack.push(
           this.loadLocal(instruction.scope, instruction.slot, instruction.name),
@@ -144,6 +149,16 @@ export class BoqqiVM {
       case "GE":
       case "LE":
         this.executeCompare(instruction.op);
+        break;
+      case "INDEX":
+        this.executeIndex();
+        break;
+      case "STORE_INDEX":
+        this.executeStoreIndex(
+          instruction.scope,
+          instruction.slot,
+          instruction.name,
+        );
         break;
       case "JUMP":
         this.jump(instruction.target);
@@ -245,6 +260,87 @@ export class BoqqiVM {
         this.stack.push(new BoolValue(leftValue <= rightValue));
         break;
     }
+  }
+
+  private pushArray(count: number): void {
+    if (!Number.isInteger(count) || count < 0) {
+      this.fail(`配列要素数 ${String(count)} は不正です`);
+    }
+
+    const elements = this.stack.splice(this.stack.length - count, count);
+    if (elements.length !== count) {
+      this.fail("配列の初期値が不足しています");
+    }
+
+    const elementType = elements[0]?.type ?? "void";
+    this.stack.push(new ArrayValue(elementType, elements));
+  }
+
+  private executeIndex(): void {
+    const index = this.pop();
+    const target = this.pop();
+
+    if (!Array.isArray(target.value)) {
+      this.fail("添え字アクセスの対象には配列が必要です");
+    }
+    if (
+      index.type !== "int" ||
+      typeof index.value !== "number" ||
+      !Number.isInteger(index.value)
+    ) {
+      this.fail("配列の添え字には int 型が必要です");
+    }
+
+    const indexValue = index.value;
+    if (indexValue < 0 || indexValue >= target.value.length) {
+      this.fail(
+        `配列の添え字 ${String(indexValue)} は範囲外です (長さ ${String(target.value.length)})`,
+      );
+    }
+
+    const element = target.value[indexValue] as RuntimeValue | undefined;
+    this.stack.push(
+      this.assumeDefined(
+        element,
+        `配列の添え字 ${String(indexValue)} は範囲外です`,
+      ),
+    );
+  }
+
+  private executeStoreIndex(
+    scope: LocalScope,
+    slot: number,
+    name: string,
+  ): void {
+    const value = this.pop();
+    const index = this.pop();
+    const target = this.pop();
+    const local = this.localSlot(this.frameForScope(scope), slot, name);
+
+    if (!Array.isArray(target.value)) {
+      this.fail(`変数 ${name} は配列ではありません`);
+    }
+    if (
+      index.type !== "int" ||
+      typeof index.value !== "number" ||
+      !Number.isInteger(index.value)
+    ) {
+      this.fail("配列の添え字には int 型が必要です");
+    }
+
+    const indexValue = index.value;
+    if (indexValue < 0 || indexValue >= target.value.length) {
+      this.fail(
+        `配列の添え字 ${String(indexValue)} は範囲外です (長さ ${String(target.value.length)})`,
+      );
+    }
+
+    this.assertWithinDomain(
+      `${name}[${String(indexValue)}]`,
+      value,
+      local.domain,
+    );
+    target.value[indexValue] = value;
   }
 
   private declareLocal(
@@ -417,6 +513,16 @@ export class BoqqiVM {
     domain: DomainSpec | undefined,
   ): void {
     if (domain === undefined) {
+      return;
+    }
+    if (Array.isArray(value.value)) {
+      for (const [index, element] of value.value.entries()) {
+        this.assertWithinDomain(
+          `${name}[${String(index)}]`,
+          element as RuntimeValue,
+          domain,
+        );
+      }
       return;
     }
     const numericValue = value.value as number;

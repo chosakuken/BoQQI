@@ -11,6 +11,7 @@ import {
   ReturnTypeNode,
 } from "../../ast/nodes/function.js";
 import { IfNode } from "../../ast/nodes/if.js";
+import { IndexNode } from "../../ast/nodes/index.js";
 import { IntNode } from "../../ast/nodes/int.js";
 import { AstNode } from "../../ast/nodes/node.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
@@ -149,6 +150,29 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitAssign(node: AssignNode): void {
     const resolved = this.resolveLocal(node.name);
+    if (node.index !== undefined) {
+      this.emit(
+        {
+          op: "LOAD",
+          slot: resolved.symbol.slot,
+          name: resolved.symbol.name,
+          scope: resolved.scope,
+        },
+        node,
+      );
+      node.index.accept(this);
+      node.expr.accept(this);
+      this.emit(
+        {
+          op: "STORE_INDEX",
+          slot: resolved.symbol.slot,
+          name: resolved.symbol.name,
+          scope: resolved.scope,
+        },
+        node,
+      );
+      return;
+    }
     node.expr.accept(this);
     this.emit(
       {
@@ -173,7 +197,7 @@ class BoqqiCompiler implements Visitor<void> {
     if (node.initValue !== undefined) {
       node.initValue.accept(this);
     } else {
-      this.emitDefaultValue(type, node);
+      this.emitDefaultValue(type, node, node.arrayLength);
     }
 
     this.emit(
@@ -199,6 +223,12 @@ class BoqqiCompiler implements Visitor<void> {
       },
       node,
     );
+  }
+
+  visitIndex(node: IndexNode): void {
+    node.target.accept(this);
+    node.index.accept(this);
+    this.emit({ op: "INDEX" }, node);
   }
 
   visitIf(node: IfNode): void {
@@ -352,7 +382,11 @@ class BoqqiCompiler implements Visitor<void> {
     };
   }
 
-  private emitDefaultValue(type: ValueType, node: AstNode): void {
+  private emitDefaultValue(
+    type: ValueType,
+    node: AstNode,
+    arrayLength?: number,
+  ): void {
     switch (type) {
       case "int":
         this.emit({ op: "PUSH_INT", value: 0 }, node);
@@ -366,10 +400,33 @@ class BoqqiCompiler implements Visitor<void> {
       case "bool":
         this.emit({ op: "PUSH_BOOL", value: false }, node);
         break;
+      case "int[]":
+        this.emitDefaultArrayValue("int", arrayLength ?? 0, node);
+        break;
+      case "float[]":
+        this.emitDefaultArrayValue("float", arrayLength ?? 0, node);
+        break;
+      case "string[]":
+        this.emitDefaultArrayValue("string", arrayLength ?? 0, node);
+        break;
+      case "bool[]":
+        this.emitDefaultArrayValue("bool", arrayLength ?? 0, node);
+        break;
       case "void":
         this.emit({ op: "PUSH_VOID" }, node);
         break;
     }
+  }
+
+  private emitDefaultArrayValue(
+    elementType: "int" | "float" | "string" | "bool",
+    length: number,
+    node: AstNode,
+  ): void {
+    for (let index = 0; index < length; index += 1) {
+      this.emitDefaultValue(elementType, node);
+    }
+    this.emit({ op: "PUSH_ARRAY", count: length }, node);
   }
 
   private emitReturn(returnType: ReturnTypeNode, node: AstNode): void {
@@ -430,6 +487,10 @@ class BoqqiCompiler implements Visitor<void> {
       case "float":
       case "string":
       case "bool":
+      case "int[]":
+      case "float[]":
+      case "string[]":
+      case "bool[]":
       case "void":
         return type;
       default:

@@ -12,6 +12,7 @@ import {
   FloatContext,
   FunctionContext,
   IfContext,
+  IndexContext,
   IntContext,
   MulDivContext,
   ParamContext,
@@ -39,6 +40,7 @@ import {
   type ReturnTypeNode,
 } from "./nodes/function.js";
 import { IfNode } from "./nodes/if.js";
+import { IndexNode } from "./nodes/index.js";
 import { IntNode } from "./nodes/int.js";
 import { ProgramNode } from "./nodes/program.js";
 import { ReturnNode } from "./nodes/return.js";
@@ -160,9 +162,14 @@ export function buildWhileAst(ctx: WhileContext): WhileNode {
 }
 
 export function buildAssignAst(ctx: AssignContext): AssignNode {
+  const exprs = ctx.expr();
+  const indexExpr = exprs.length === 2 ? exprs[0] : undefined;
+  const valueExpr = exprs.length === 2 ? exprs[1] : exprs[0];
+
   return new AssignNode(
     ctx.IDENT().getText(),
-    buildExprAst(ctx.expr()),
+    indexExpr === undefined ? undefined : buildExprAst(indexExpr),
+    buildExprAst(valueExpr),
     location(ctx),
   );
 }
@@ -223,6 +230,11 @@ export function buildParamAst(ctx: ParamContext): ParamNode {
 }
 
 function getParamType(ctx: ParamContext): string {
+  const arrayType = ctx.arrayType();
+  if (arrayType !== null) {
+    return `${arrayType.elementType().getText()}[]`;
+  }
+
   const type = ctx.getChild(0)?.getText();
   if (type === undefined) {
     throw new Error(`引数の型が見つかりません: ${ctx.getText()}`);
@@ -241,17 +253,25 @@ export function buildReturnAst(ctx: ReturnContext): ReturnNode {
 export function buildDeclareAst(ctx: DeclarationContext): DeclareNode {
   const initExpr = ctx.expr();
   const type = getDeclaredType(ctx);
+  const arrayLength = getDeclaredArrayLength(ctx);
   const domainContext = ctx.domain();
   const domain =
     domainContext === null ? undefined : buildDomainAst(domainContext);
 
-  if ((type === "int" || type === "float") && domain === undefined) {
+  if (
+    (type === "int" ||
+      type === "float" ||
+      type === "int[]" ||
+      type === "float[]") &&
+    domain === undefined
+  ) {
     throw new Error(`${type} 型の宣言には定義域が必要です: ${ctx.getText()}`);
   }
 
   return new DeclareNode(
     type,
     ctx.IDENT().getText(),
+    arrayLength,
     domain,
     initExpr === null ? undefined : buildExprAst(initExpr),
     location(ctx),
@@ -259,11 +279,29 @@ export function buildDeclareAst(ctx: DeclarationContext): DeclareNode {
 }
 
 function getDeclaredType(ctx: DeclarationContext): string {
+  const arrayType = ctx.arrayType();
+  if (arrayType !== null) {
+    return `${arrayType.elementType().getText()}[]`;
+  }
+
   const type = ctx.getChild(0)?.getText();
   if (type === undefined) {
     throw new Error(`宣言の型が見つかりません: ${ctx.getText()}`);
   }
   return type;
+}
+
+function getDeclaredArrayLength(ctx: DeclarationContext): number | undefined {
+  const arrayType = ctx.arrayType();
+  if (arrayType === null) {
+    return undefined;
+  }
+
+  const length = Number(arrayType.INT().getText());
+  if (!Number.isInteger(length) || length < 0) {
+    throw new Error(`配列長が不正です: ${arrayType.getText()}`);
+  }
+  return length;
 }
 
 export function buildDomainAst(ctx: DomainContext): DomainNode {
@@ -289,6 +327,21 @@ export function buildCallAst(ctx: CallContext): CallNode {
 }
 
 export function buildExprAst(ctx: ExprContext): ExprNode {
+  if (ctx instanceof IndexContext) {
+    const target = ctx.expr(0);
+    const index = ctx.expr(1);
+
+    if (target === null || index === null) {
+      throw new Error(`Index expression is missing operands: ${ctx.getText()}`);
+    }
+
+    return new IndexNode(
+      buildExprAst(target),
+      buildExprAst(index),
+      location(ctx),
+    );
+  }
+
   if (ctx instanceof IntContext) {
     return new IntNode(
       Number(ctx.INT().getText()),
