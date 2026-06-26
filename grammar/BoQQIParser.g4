@@ -42,7 +42,6 @@ params
 param
     : numericType domain IDENT
     | nonNumericType IDENT
-    | arrayType IDENT
     ;
 
 return

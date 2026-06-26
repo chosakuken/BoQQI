@@ -22,7 +22,6 @@ import { WhileNode } from "../../ast/nodes/while.js";
 import { BoqqiSemanticError } from "../../diagnostics/semanticError.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { Visitor } from "../visitor.js";
-import { ArrayValueType, ScalarValueType } from "../../vm/instruction.js";
 import {
   FunctionSymbol,
   SemanticResult,
@@ -133,6 +132,9 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
         if (argTypes.includes("void")) {
           this.fail(`関数 ${node.name} に void 型の値は渡せません`);
         }
+        if (argTypes.some((type) => this.isArrayType(type))) {
+          this.fail(`関数 ${node.name} に配列型の値は渡せません`);
+        }
         return func.returnType;
       }
 
@@ -144,6 +146,9 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
 
       for (const [index, argType] of argTypes.entries()) {
         const param = func.params[index];
+        if (this.isArrayType(argType)) {
+          this.fail(`関数 ${node.name} に配列型の値は渡せません`);
+        }
         if (param.type !== argType) {
           this.fail(
             `関数 ${node.name} の引数 ${param.name} は ${param.type} 型ですが、${argType} 型が渡されました`,
@@ -240,6 +245,9 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
 
   visitIndex(node: IndexNode): SemanticType {
     return this.withFrame(node, "index", () => {
+      if (!(node.target instanceof VarNode)) {
+        this.fail("添え字アクセスの対象には配列変数が必要です");
+      }
       const targetType = node.target.accept(this);
       const indexType = node.index.accept(this);
 
@@ -441,12 +449,6 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
     return type === "int" || type === "float";
   }
 
-  private isScalarType(type: SemanticType): type is ScalarValueType {
-    return (
-      type === "int" || type === "float" || type === "string" || type === "bool"
-    );
-  }
-
   private isArrayType(
     type: string,
   ): type is `${"int" | "float" | "string" | "bool"}[]` {
@@ -456,10 +458,6 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
       type === "string[]" ||
       type === "bool[]"
     );
-  }
-
-  private arrayType(elementType: ScalarValueType): ArrayValueType {
-    return `${elementType}[]`;
   }
 
   private arrayElementType(type: SemanticType): SemanticType {

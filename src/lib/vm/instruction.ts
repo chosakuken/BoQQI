@@ -1,8 +1,8 @@
 import { SourceLocation } from "../diagnostics/sourceLocation.js";
 
 export type ScalarValueType = "int" | "float" | "string" | "bool";
-export type ArrayValueType = `${ScalarValueType}[]`;
-export type ValueType = ScalarValueType | ArrayValueType | "void";
+export type ArrayType = `${ScalarValueType}[]`;
+export type ValueType = ScalarValueType | ArrayType | "void";
 
 export interface DomainSpec {
   readonly min: number;
@@ -45,7 +45,6 @@ export type Instruction = {
   | { readonly op: "PUSH_STRING"; readonly value: string }
   | { readonly op: "PUSH_BOOL"; readonly value: boolean }
   | { readonly op: "PUSH_VOID" }
-  | { readonly op: "PUSH_ARRAY"; readonly count: number }
   | {
       readonly op: "LOAD";
       readonly slot: number;
@@ -66,6 +65,14 @@ export type Instruction = {
       readonly hasDomain: boolean;
     }
   | {
+      readonly op: "DECLARE_ARRAY";
+      readonly slot: number;
+      readonly name: string;
+      readonly elementType: ScalarValueType;
+      readonly length: number;
+      readonly hasDomain: boolean;
+    }
+  | {
       readonly op: "CHECK_LOCAL";
       readonly slot: number;
       readonly name: string;
@@ -83,12 +90,19 @@ export type Instruction = {
   | { readonly op: "LT" }
   | { readonly op: "GE" }
   | { readonly op: "LE" }
-  | { readonly op: "INDEX" }
+  | {
+      readonly op: "LOAD_INDEX";
+      readonly slot: number;
+      readonly name: string;
+      readonly scope: LocalScope;
+      readonly length: number;
+    }
   | {
       readonly op: "STORE_INDEX";
       readonly slot: number;
       readonly name: string;
       readonly scope: LocalScope;
+      readonly length: number;
     }
   | { readonly op: "JUMP"; readonly target: number }
   | { readonly op: "JUMP_IF_FALSE"; readonly target: number }

@@ -230,11 +230,6 @@ export function buildParamAst(ctx: ParamContext): ParamNode {
 }
 
 function getParamType(ctx: ParamContext): string {
-  const arrayType = ctx.arrayType();
-  if (arrayType !== null) {
-    return `${arrayType.elementType().getText()}[]`;
-  }
-
   const type = ctx.getChild(0)?.getText();
   if (type === undefined) {
     throw new Error(`引数の型が見つかりません: ${ctx.getText()}`);

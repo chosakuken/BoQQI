@@ -48,20 +48,7 @@ export class VoidValue implements ValuableValue<undefined> {
   }
 }
 
-export class ArrayValue implements ValuableValue<ValuableValue<unknown>[]> {
-  readonly type: string;
-  readonly value: ValuableValue<unknown>[];
-  constructor(elementType: string, value: ValuableValue<unknown>[]) {
-    this.type = `${elementType}[]`;
-    this.value = value;
-  }
-}
-
 export function runtimeValueToString(value: ValuableValue<unknown>): string {
-  if (Array.isArray(value.value)) {
-    return `[${value.value.map(runtimeValueToString).join(", ")}]`;
-  }
-
   switch (typeof value.value) {
     case "number":
     case "boolean":

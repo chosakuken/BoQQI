@@ -2,7 +2,6 @@ import { Visitor } from "../visitor.js";
 import { RuntimeValue } from "./runtimeValue/runtimeValue.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
 import {
-  ArrayValue,
   BoolValue,
   FloatValue,
   IntValue,
@@ -38,7 +37,9 @@ interface Var {
     max: number;
     min: number;
   };
-  runtimeValue: RuntimeValue;
+  runtimeValue?: RuntimeValue;
+  arrayLength?: number;
+  elementType?: string;
 }
 
 interface EnvFrame {
@@ -223,6 +224,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         return value;
       }
       this.assertWithinDomain(node.name, value, currentVar.domain);
+      if (currentVar.runtimeValue === undefined) {
+        this.fail(`配列 ${node.name} への一括代入はできません`);
+      }
       currentVar.runtimeValue = value;
       return value;
     });
@@ -232,10 +236,33 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       const vars = this.currentEnvFrame().vars;
       const domain =
         node.domain === undefined ? undefined : this.evalDomain(node);
+      if (this.isArrayType(node.type)) {
+        const length = node.arrayLength ?? 0;
+        const elementType = node.type.slice(0, -2);
+        vars.set(node.name, {
+          domain,
+          arrayLength: length,
+          elementType,
+        });
+        for (let index = 0; index < length; index += 1) {
+          const value = this.defaultValue(elementType);
+          this.assertWithinDomain(
+            `${node.name}[${String(index)}]`,
+            value,
+            domain,
+          );
+          vars.set(`${node.name}[${String(index)}]`, {
+            domain,
+            runtimeValue: value,
+          });
+        }
+        return new IntValue(0);
+      }
+
       const value =
         node.initValue !== undefined
           ? node.initValue.accept(this)
-          : this.defaultValue(node.type, node.arrayLength);
+          : this.defaultValue(node.type);
       this.assertWithinDomain(node.name, value, domain);
 
       vars.set(node.name, {
@@ -251,15 +278,20 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.findVar(node.name),
         `Internal interpreter error: unresolved variable ${node.name}`,
       );
+      if (variable.runtimeValue === undefined) {
+        this.fail(`配列 ${node.name} は値として読み出せません`);
+      }
       return variable.runtimeValue;
     });
   }
 
   visitIndex(node: IndexNode): RuntimeValue {
     return this.withFrame(node, "index", () => {
-      const target = node.target.accept(this);
+      if (!(node.target instanceof VarNode)) {
+        this.fail("添え字アクセスの対象には配列変数が必要です");
+      }
       const index = node.index.accept(this);
-      return this.indexArray(target, index);
+      return this.loadArrayElement(node.target.name, index);
     });
   }
 
@@ -331,7 +363,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     const cond = node.cond.accept(this);
     return cond.value as boolean;
   }
-  private defaultValue(type: string, arrayLength?: number): RuntimeValue {
+  private defaultValue(type: string): RuntimeValue {
     switch (type) {
       case "int":
         return new IntValue(0);
@@ -341,53 +373,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         return new StringValue("");
       case "bool":
         return new BoolValue(false);
-      case "int[]":
-        return this.defaultArrayValue("int", arrayLength);
-      case "float[]":
-        return this.defaultArrayValue("float", arrayLength);
-      case "string[]":
-        return this.defaultArrayValue("string", arrayLength);
-      case "bool[]":
-        return this.defaultArrayValue("bool", arrayLength);
       default:
         this.fail(`型 ${type} は存在しません`);
     }
-  }
-
-  private defaultArrayValue(
-    elementType: string,
-    arrayLength?: number,
-  ): RuntimeValue {
-    const length = arrayLength ?? 0;
-    const elements = Array.from({ length }, () =>
-      this.defaultValue(elementType),
-    );
-    return new ArrayValue(elementType, elements);
-  }
-
-  private indexArray(target: RuntimeValue, index: RuntimeValue): RuntimeValue {
-    if (!Array.isArray(target.value)) {
-      this.fail(`添え字アクセスの対象には配列が必要です`);
-    }
-    if (
-      index.type !== "int" ||
-      typeof index.value !== "number" ||
-      !Number.isInteger(index.value)
-    ) {
-      this.fail(`配列の添え字には int 型が必要です`);
-    }
-
-    const indexValue = index.value;
-    if (indexValue < 0 || indexValue >= target.value.length) {
-      this.fail(
-        `配列の添え字 ${String(indexValue)} は範囲外です (長さ ${String(target.value.length)})`,
-      );
-    }
-
-    return this.assumeDefined(
-      target.value[indexValue] as RuntimeValue | undefined,
-      `配列の添え字 ${String(indexValue)} は範囲外です`,
-    );
   }
 
   private evalDomain(node: DeclareNode): Var["domain"] {
@@ -411,16 +399,6 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     if (domain === undefined) {
       return;
     }
-    if (Array.isArray(value.value)) {
-      for (const [index, element] of value.value.entries()) {
-        this.assertWithinDomain(
-          `${name}[${String(index)}]`,
-          element as RuntimeValue,
-          domain,
-        );
-      }
-      return;
-    }
     const numericValue = value.value as number;
     if (numericValue < domain.min || numericValue > domain.max) {
       this.fail(
@@ -435,29 +413,20 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     index: RuntimeValue,
     value: RuntimeValue,
   ): void {
-    const target = variable.runtimeValue;
-    if (!Array.isArray(target.value)) {
+    if (variable.arrayLength === undefined) {
       this.fail(`変数 ${name} は配列ではありません`);
     }
-    if (
-      index.type !== "int" ||
-      typeof index.value !== "number" ||
-      !Number.isInteger(index.value)
-    ) {
-      this.fail(`配列の添え字には int 型が必要です`);
-    }
-    const indexValue = index.value;
-    if (indexValue < 0 || indexValue >= target.value.length) {
-      this.fail(
-        `配列の添え字 ${String(indexValue)} は範囲外です (長さ ${String(target.value.length)})`,
-      );
-    }
+    const indexValue = this.arrayIndex(name, index, variable.arrayLength);
+    const element = this.assumeDefined(
+      this.findVar(`${name}[${String(indexValue)}]`),
+      `Internal interpreter error: unresolved variable ${name}[${String(indexValue)}]`,
+    );
     this.assertWithinDomain(
       `${name}[${String(indexValue)}]`,
       value,
       variable.domain,
     );
-    target.value[indexValue] = value;
+    element.runtimeValue = value;
   }
   // ユーザ定義の関数を呼び出す
   private callUserFunction(
@@ -490,7 +459,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
 
         const domain =
           param.domain === undefined ? undefined : this.evalParamDomain(param);
-        this.assertWithinDomain(param.name, variable.runtimeValue, domain);
+        this.assertWithinDomain(
+          param.name,
+          this.assumeDefined(
+            variable.runtimeValue,
+            `Internal interpreter error: uninitialized argument ${param.name}`,
+          ),
+          domain,
+        );
 
         variable.domain = domain;
       }
@@ -578,6 +554,55 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     }
 
     return this.envFrames[0].vars.get(name);
+  }
+
+  private loadArrayElement(name: string, index: RuntimeValue): RuntimeValue {
+    const variable = this.assumeDefined(
+      this.findVar(name),
+      `Internal interpreter error: unresolved variable ${name}`,
+    );
+    if (variable.arrayLength === undefined) {
+      this.fail(`変数 ${name} は配列ではありません`);
+    }
+    const indexValue = this.arrayIndex(name, index, variable.arrayLength);
+    const element = this.assumeDefined(
+      this.findVar(`${name}[${String(indexValue)}]`),
+      `Internal interpreter error: unresolved variable ${name}[${String(indexValue)}]`,
+    );
+    return this.assumeDefined(
+      element.runtimeValue,
+      `Internal interpreter error: uninitialized variable ${name}[${String(indexValue)}]`,
+    );
+  }
+
+  private arrayIndex(
+    name: string,
+    index: RuntimeValue,
+    length: number,
+  ): number {
+    if (
+      index.type !== "int" ||
+      typeof index.value !== "number" ||
+      !Number.isInteger(index.value)
+    ) {
+      this.fail(`配列の添え字には int 型が必要です`);
+    }
+    const indexValue = index.value;
+    if (indexValue < 0 || indexValue >= length) {
+      this.fail(
+        `配列 ${name} の添え字 ${String(indexValue)} は範囲外です (長さ ${String(length)})`,
+      );
+    }
+    return indexValue;
+  }
+
+  private isArrayType(type: string): boolean {
+    return (
+      type === "int[]" ||
+      type === "float[]" ||
+      type === "string[]" ||
+      type === "bool[]"
+    );
   }
 
   private currentEnvFrame(): EnvFrame {
