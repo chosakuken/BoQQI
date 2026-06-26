@@ -170,7 +170,7 @@ export class BoqqiVM {
         this.jumpIfFalse(instruction.target);
         break;
       case "WRITE":
-        this.write();
+        this.write(instruction.newline);
         break;
       case "CALL":
         this.call(instruction.name, instruction.argc);
@@ -411,8 +411,9 @@ export class BoqqiVM {
     }
   }
 
-  private write(): void {
-    this.output(`${runtimeValueToString(this.pop())}\n`);
+  private write(newline: boolean): void {
+    const suffix = newline ? "\n" : "";
+    this.output(`${runtimeValueToString(this.pop())}${suffix}`);
   }
 
   private call(name: string, argc: number): void {

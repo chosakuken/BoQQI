@@ -49,6 +49,11 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
       params: "variadic",
       returnType: "void",
     });
+    this.functions.set("println", {
+      name: "println",
+      params: "variadic",
+      returnType: "void",
+    });
   }
 
   analyze(program: ProgramNode): SemanticResult {

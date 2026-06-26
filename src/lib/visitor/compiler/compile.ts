@@ -145,11 +145,12 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitCall(node: CallNode): void {
     if (node.name === "print") {
-      for (const arg of node.args) {
-        arg.accept(this);
-        this.emit({ op: "WRITE" }, node);
-      }
-      this.emit({ op: "PUSH_VOID" }, node);
+      this.emitWriteCall(node, false);
+      return;
+    }
+
+    if (node.name === "println") {
+      this.emitWriteCall(node, true);
       return;
     }
 
@@ -397,6 +398,20 @@ class BoqqiCompiler implements Visitor<void> {
       node.expr.accept(this);
     }
     this.emitReturn(returnType, node);
+  }
+
+  private emitWriteCall(node: CallNode, newline: boolean): void {
+    for (const arg of node.args) {
+      arg.accept(this);
+      this.emit({ op: "WRITE", newline: false }, node);
+    }
+
+    if (newline) {
+      this.emit({ op: "PUSH_STRING", value: "" }, node);
+      this.emit({ op: "WRITE", newline: true }, node);
+    }
+
+    this.emit({ op: "PUSH_VOID" }, node);
   }
 
   private emit(instruction: Instruction, node?: AstNode): number {

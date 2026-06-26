@@ -83,8 +83,18 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       kind: "builtin",
       call: (args: RuntimeValue[]) => {
         for (const arg of args) {
-          this.output(`${runtimeValueToString(arg)}\n`);
+          this.output(runtimeValueToString(arg));
         }
+        return new VoidValue();
+      },
+    });
+    this.funcs.set("println", {
+      kind: "builtin",
+      call: (args: RuntimeValue[]) => {
+        for (const arg of args) {
+          this.output(runtimeValueToString(arg));
+        }
+        this.output("\n");
         return new VoidValue();
       },
     });

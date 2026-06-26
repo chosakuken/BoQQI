@@ -106,7 +106,7 @@ export type Instruction = {
     }
   | { readonly op: "JUMP"; readonly target: number }
   | { readonly op: "JUMP_IF_FALSE"; readonly target: number }
-  | { readonly op: "WRITE" }
+  | { readonly op: "WRITE"; readonly newline: boolean }
   | { readonly op: "CALL"; readonly name: string; readonly argc: number }
   | { readonly op: "RETURN" }
   | { readonly op: "POP" }
