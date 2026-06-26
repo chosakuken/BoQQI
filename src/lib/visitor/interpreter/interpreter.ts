@@ -85,7 +85,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         for (const arg of args) {
           this.output(`${runtimeValueToString(arg)}\n`);
         }
-        return new IntValue(0); // 正常動作として 0 を返す
+        return new VoidValue();
       },
     });
   }

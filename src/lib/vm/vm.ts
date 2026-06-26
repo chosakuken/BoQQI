@@ -33,13 +33,10 @@ interface CallFrame {
   readonly hasReturnDomain: boolean;
 }
 
-type BuiltinFunc = (args: RuntimeValue[]) => RuntimeValue;
-
 export class BoqqiVM {
   private pc = 0;
   private readonly stack: RuntimeValue[] = []; // スタックマシン
   private readonly frames: CallFrame[] = []; // 変数表
-  private readonly funcs = new Map<string, BuiltinFunc>(); // 関数表
   private currentInstruction?: Instruction;
 
   constructor(
@@ -52,13 +49,6 @@ export class BoqqiVM {
       locals: this.createLocalSlots(program.globalLocalCount),
       returnType: "int",
       hasReturnDomain: false,
-    });
-
-    this.funcs.set("print", (args: RuntimeValue[]) => {
-      for (const arg of args) {
-        this.output(`${runtimeValueToString(arg)}\n`);
-      }
-      return new IntValue(0);
     });
   }
 
@@ -178,6 +168,9 @@ export class BoqqiVM {
         break;
       case "JUMP_IF_FALSE":
         this.jumpIfFalse(instruction.target);
+        break;
+      case "WRITE":
+        this.write();
         break;
       case "CALL":
         this.call(instruction.name, instruction.argc);
@@ -418,16 +411,14 @@ export class BoqqiVM {
     }
   }
 
+  private write(): void {
+    this.output(`${runtimeValueToString(this.pop())}\n`);
+  }
+
   private call(name: string, argc: number): void {
     const args = this.stack.splice(this.stack.length - argc, argc);
     if (args.length !== argc) {
       this.fail(`関数 ${name} の引数が不足しています`);
-    }
-
-    const builtin = this.funcs.get(name);
-    if (builtin !== undefined) {
-      this.stack.push(builtin(args));
-      return;
     }
 
     const func = this.assumeDefined(

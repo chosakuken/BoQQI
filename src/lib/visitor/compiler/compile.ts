@@ -144,6 +144,15 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   visitCall(node: CallNode): void {
+    if (node.name === "print") {
+      for (const arg of node.args) {
+        arg.accept(this);
+        this.emit({ op: "WRITE" }, node);
+      }
+      this.emit({ op: "PUSH_VOID" }, node);
+      return;
+    }
+
     for (const arg of node.args) {
       arg.accept(this);
     }

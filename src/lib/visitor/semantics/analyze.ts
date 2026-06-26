@@ -47,7 +47,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
     this.functions.set("print", {
       name: "print",
       params: "variadic",
-      returnType: "int",
+      returnType: "void",
     });
   }
 
