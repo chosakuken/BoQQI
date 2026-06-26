@@ -154,6 +154,12 @@ class BoqqiCompiler implements Visitor<void> {
       return;
     }
 
+    const scanType = this.scanValueType(node.name);
+    if (scanType !== undefined) {
+      this.emit({ op: "SCAN", valueType: scanType }, node);
+      return;
+    }
+
     for (const arg of node.args) {
       arg.accept(this);
     }
@@ -412,6 +418,21 @@ class BoqqiCompiler implements Visitor<void> {
     }
 
     this.emit({ op: "PUSH_VOID" }, node);
+  }
+
+  private scanValueType(name: string): ScalarValueType | undefined {
+    switch (name) {
+      case "scanInt":
+        return "int";
+      case "scanFloat":
+        return "float";
+      case "scanString":
+        return "string";
+      case "scanBool":
+        return "bool";
+      default:
+        return undefined;
+    }
   }
 
   private emit(instruction: Instruction, node?: AstNode): number {

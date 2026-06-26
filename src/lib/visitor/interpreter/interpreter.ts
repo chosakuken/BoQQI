@@ -27,6 +27,7 @@ import { StringNode } from "../../ast/nodes/string.js";
 import { DeclareNode } from "../../ast/nodes/declare.js";
 import { AstNode } from "../../ast/nodes/node.js";
 import { BoqqiRuntimeError } from "../../diagnostics/runtimeError.js";
+import { InputScanner } from "../../io/inputScanner.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
 import { WhileNode } from "../../ast/nodes/while.js";
@@ -73,9 +74,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   private envFrames: EnvFrame[]; // 変数表
   private readonly frames: SourceFrame[] = [];
   private readonly output: (text: string) => void; // 出力先
+  private readonly input: InputScanner;
 
-  constructor(private readonly outputDevice: (text: string) => void) {
+  constructor(
+    private readonly outputDevice: (text: string) => void,
+    inputSource = "",
+  ) {
     this.output = outputDevice;
+    this.input = new InputScanner(inputSource);
     this.funcs = new Map<string, FunctionValue>();
     this.envFrames = [{ name: "global", vars: new Map<string, Var>() }];
     // 組み込み関数
@@ -97,6 +103,22 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.output("\n");
         return new VoidValue();
       },
+    });
+    this.funcs.set("scanInt", {
+      kind: "builtin",
+      call: () => this.input.scan("int"),
+    });
+    this.funcs.set("scanFloat", {
+      kind: "builtin",
+      call: () => this.input.scan("float"),
+    });
+    this.funcs.set("scanString", {
+      kind: "builtin",
+      call: () => this.input.scan("string"),
+    });
+    this.funcs.set("scanBool", {
+      kind: "builtin",
+      call: () => this.input.scan("bool"),
     });
   }
   // ビジター

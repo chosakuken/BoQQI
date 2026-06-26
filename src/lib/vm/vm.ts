@@ -1,5 +1,6 @@
 import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
 import { SourceFrame } from "../diagnostics/sourceLocation.js";
+import { InputScanner } from "../io/inputScanner.js";
 import {
   BoolValue,
   FloatValue,
@@ -37,12 +38,15 @@ export class BoqqiVM {
   private pc = 0;
   private readonly stack: RuntimeValue[] = []; // スタックマシン
   private readonly frames: CallFrame[] = []; // 変数表
+  private readonly input: InputScanner;
   private currentInstruction?: Instruction;
 
   constructor(
     private readonly program: BytecodeProgram,
     private readonly output: (text: string) => void,
+    inputSource = "",
   ) {
+    this.input = new InputScanner(inputSource);
     this.frames.push({
       functionName: "global",
       returnPc: -1,
@@ -171,6 +175,9 @@ export class BoqqiVM {
         break;
       case "WRITE":
         this.write(instruction.newline);
+        break;
+      case "SCAN":
+        this.stack.push(this.input.scan(instruction.valueType));
         break;
       case "CALL":
         this.call(instruction.name, instruction.argc);

@@ -12,6 +12,7 @@ import {
 } from "../lib/diagnostics/semanticError.js";
 import { BoqqiInterpreter } from "../lib/visitor/interpreter/interpreter.js";
 import { semanticAnalyze } from "../lib/visitor/semantics/analyze.js";
+import { readPipedStdin } from "./stdin.js";
 
 export function createInterpreteCommand(): Command {
   return new Command("interprete")
@@ -19,12 +20,13 @@ export function createInterpreteCommand(): Command {
     .argument("<file>", "source file path")
     .action(async (file: string) => {
       const source = await readFile(file, "utf-8");
+      const input = await readPipedStdin();
       try {
         const ast = parseToAst(source);
         semanticAnalyze(ast);
         const interpreter = new BoqqiInterpreter((txt: string) => {
           process.stdout.write(txt);
-        });
+        }, input);
         interpreter.visitProgram(ast);
       } catch (error) {
         if (error instanceof BoqqiSemanticError) {

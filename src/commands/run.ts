@@ -11,6 +11,7 @@ import {
 } from "../lib/diagnostics/semanticError.js";
 import { bytecodeFromJson } from "../lib/vm/bytecodeJson.js";
 import { BoqqiVM } from "../lib/vm/vm.js";
+import { readPipedStdin } from "./stdin.js";
 
 export function createRunCommand(): Command {
   return new Command("run")
@@ -18,11 +19,16 @@ export function createRunCommand(): Command {
     .argument("<file>", "bytecode JSON file path")
     .action(async (file: string) => {
       const bytecodeJson = await readFile(file, "utf-8");
+      const input = await readPipedStdin();
       try {
         const bytecode = bytecodeFromJson(JSON.parse(bytecodeJson));
-        const vm = new BoqqiVM(bytecode, (txt: string) => {
-          process.stdout.write(txt);
-        });
+        const vm = new BoqqiVM(
+          bytecode,
+          (txt: string) => {
+            process.stdout.write(txt);
+          },
+          input,
+        );
         vm.run();
       } catch (error) {
         if (error instanceof SyntaxError) {
