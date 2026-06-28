@@ -38,6 +38,7 @@ export type BoqqiVMExecutionMode = "normal" | "max-test";
 
 export interface BoqqiVMOptions {
   readonly mode?: BoqqiVMExecutionMode;
+  readonly maxTestLog?: (text: string) => void;
 }
 
 export class BoqqiVM {
@@ -46,6 +47,7 @@ export class BoqqiVM {
   private readonly frames: CallFrame[] = []; // 変数表
   private readonly input: InputScanner;
   private readonly mode: BoqqiVMExecutionMode;
+  private readonly maxTestLog?: (text: string) => void;
   private currentInstruction?: Instruction;
 
   constructor(
@@ -56,6 +58,7 @@ export class BoqqiVM {
   ) {
     this.input = new InputScanner(inputSource);
     this.mode = options.mode ?? "normal";
+    this.maxTestLog = options.maxTestLog;
     this.frames.push({
       functionName: "global",
       returnPc: -1,
@@ -338,7 +341,7 @@ export class BoqqiVM {
     local.name = name;
     local.type = type;
     local.domain = domain;
-    local.runtimeValue = this.maxTestValue(value, domain);
+    local.runtimeValue = this.maxTestValue(name, value, domain);
   }
 
   private declareArrayLocal(
@@ -366,7 +369,7 @@ export class BoqqiVM {
       local.name = elementName;
       local.type = elementType;
       local.domain = domain;
-      local.runtimeValue = this.maxTestValue(value, domain);
+      local.runtimeValue = this.maxTestValue(elementName, value, domain);
     }
   }
 
@@ -530,6 +533,7 @@ export class BoqqiVM {
   }
 
   private maxTestValue(
+    name: string,
     value: RuntimeValue,
     domain: DomainSpec | undefined,
   ): RuntimeValue {
@@ -539,12 +543,20 @@ export class BoqqiVM {
 
     switch (value.type) {
       case "int":
-        return this.numberToRuntimeValue("int", domain.max);
-      case "float":
-        return this.numberToRuntimeValue("float", domain.max);
+      case "float": {
+        const maxValue = this.numberToRuntimeValue(value.type, domain.max);
+        this.logMaxTestAssignment(name, maxValue);
+        return maxValue;
+      }
       default:
         return value;
     }
+  }
+
+  private logMaxTestAssignment(name: string, maxValue: RuntimeValue): void {
+    this.maxTestLog?.(
+      `[max-test] ${name} <- ${runtimeValueToString(maxValue)}`,
+    );
   }
 
   private assertWithinDomain(

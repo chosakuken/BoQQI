@@ -23,13 +23,24 @@ export function createRunCommand(): Command {
       const input = await readPipedStdin();
       try {
         const bytecode = bytecodeFromJson(JSON.parse(bytecodeJson));
+        const maxTest = options.maxTest === true;
+        const writeMaxTestLog = (txt: string): void => {
+          process.stdout.write(`${txt}\n`);
+        };
+
         const vm = new BoqqiVM(
           bytecode,
           (txt: string) => {
+            if (maxTest) {
+              return;
+            }
             process.stdout.write(txt);
           },
           input,
-          { mode: options.maxTest === true ? "max-test" : "normal" },
+          {
+            mode: maxTest ? "max-test" : "normal",
+            maxTestLog: maxTest ? writeMaxTestLog : undefined,
+          },
         );
         vm.run();
       } catch (error) {
