@@ -38,6 +38,7 @@ INT=37
 STRING=38
 IDENT=39
 WS=40
+LINE_COMMENT=41
 'if'=1
 'else'=2
 'while'=3
