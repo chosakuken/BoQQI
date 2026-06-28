@@ -52,7 +52,7 @@ println(sum(a));
 サンプルプログラムをインタプリタで実行します。
 
 ```sh
-boqqi interprete samples/sum.txt
+boqqi interpret samples/sum.txt
 ```
 
 出力例:
@@ -82,20 +82,22 @@ boqqi run out/sum.json
 boqqi lex <file>         トークン列を JSON で出力
 boqqi parse <file>       構文解析結果を JSON で出力
 boqqi ast-dump <file>    AST を JSON で出力
-boqqi interprete <file>  ソースコードを直接実行
+boqqi interpret <file>   ソースコードを直接実行
 boqqi compile <file>     ソースコードをバイトコード JSON に変換
 boqqi run <file>         バイトコード JSON を VM で実行
 ```
 
-`boqqi run` には、定義域付きの数値を境界値ケースで実行する `--max-test` / `--min-test` オプションがあります。
+`boqqi interpret` と `boqqi run` には、定義域付きの数値を境界値ケースで実行する `--max-test` / `--min-test` オプションがあります。
 
 ```sh
+boqqi interpret samples/comp.txt --max-test
+boqqi interpret samples/comp.txt --min-test
 boqqi compile samples/comp.txt > out/comp.json
 boqqi run out/comp.json --max-test
 boqqi run out/comp.json --min-test
 ```
 
-`--max-test` と `--min-test` は同時に指定できません。各関数を一度ずつ境界値ケースで実行してから、main 相当のトップレベル処理を実行します。domain 付きの `int` / `float` 変数または配列要素を宣言するときと、関数実体を最初に実行するときの domain 付き引数に、`--max-test` では `domain.max`、`--min-test` では `domain.min` を採用し、その値を以降の VM 実行へ流します。このモードではプログラムの標準出力は抑制され、境界値を代入したタイミングが `[max-test] name <- value` または `[min-test] name <- value` 形式のテストログとして出力されます。関数テストは `test of name():`、トップレベル処理は `test of main:` の見出しで出力されます。境界方向の代表値テストであり、全経路の完全な値安全証明ではありません。
+`--max-test` と `--min-test` は同時に指定できません。各関数を一度ずつ境界値ケースで実行してから、main 相当のトップレベル処理を実行します。domain 付きの `int` / `float` 変数または配列要素を宣言するときと、関数実体を最初に実行するときの domain 付き引数に、`--max-test` では `domain.max`、`--min-test` では `domain.min` を採用し、その値を以降の実行へ流します。このモードではプログラムの標準出力は抑制され、境界値を代入したタイミングが `[max-test] name <- value` または `[min-test] name <- value` 形式のテストログとして出力されます。関数テストは `test of name():`、トップレベル処理は `test of main:` の見出しで出力されます。境界方向の代表値テストであり、全経路の完全な値安全証明ではありません。
 
 ## Development
 
