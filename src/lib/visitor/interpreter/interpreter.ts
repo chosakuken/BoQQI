@@ -54,6 +54,7 @@ interface Var {
 interface EnvFrame {
   readonly name: string;
   readonly vars: Map<string, Var>;
+  readonly boundaryTestParams: boolean;
 }
 
 interface UserFunction {
@@ -77,21 +78,41 @@ class ReturnSignal extends Error {
   }
 }
 
+export type BoqqiInterpreterExecutionMode = "normal" | "max-test" | "min-test";
+
+export interface BoqqiInterpreterOptions {
+  readonly mode?: BoqqiInterpreterExecutionMode;
+  readonly boundaryTestLog?: (text: string) => void;
+}
+
 export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   private funcs: Map<string, FunctionValue>; // 関数表
   private envFrames: EnvFrame[]; // 変数表
   private readonly frames: SourceFrame[] = [];
   private readonly output: (text: string) => void; // 出力先
   private readonly input: InputScanner;
+  private readonly mode: BoqqiInterpreterExecutionMode;
+  private readonly boundaryTestLog?: (text: string) => void;
+  private readonly boundaryTestedFunctions = new Set<string>();
+  private didRunFunctionBoundaryTests = false;
 
   constructor(
     private readonly outputDevice: (text: string) => void,
     inputSource = "",
+    options: BoqqiInterpreterOptions = {},
   ) {
     this.output = outputDevice;
     this.input = new InputScanner(inputSource);
+    this.mode = options.mode ?? "normal";
+    this.boundaryTestLog = options.boundaryTestLog;
     this.funcs = new Map<string, FunctionValue>();
-    this.envFrames = [{ name: "global", vars: new Map<string, Var>() }];
+    this.envFrames = [
+      {
+        name: "global",
+        vars: new Map<string, Var>(),
+        boundaryTestParams: false,
+      },
+    ];
     // 組み込み関数
     this.funcs.set("print", {
       kind: "builtin",
@@ -132,7 +153,18 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   // ビジター
   visitProgram(node: ProgramNode): RuntimeValue {
     return this.withFrame(node, "program", () => {
+      if (this.isBoundaryTestMode()) {
+        this.registerProgramFunctions(node);
+        if (!this.didRunFunctionBoundaryTests) {
+          this.runFunctionBoundaryTests();
+          this.boundaryTestLog?.("test of main:");
+        }
+      }
+
       for (const child of node.body) {
+        if (this.isBoundaryTestMode() && child instanceof FunctionNode) {
+          continue;
+        }
         child.accept(this);
       }
       return new IntValue(0); // 正常動作として 0 を返す
@@ -293,7 +325,11 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
           );
           vars.set(`${node.name}[${String(index)}]`, {
             domain,
-            runtimeValue: value,
+            runtimeValue: this.boundaryTestValue(
+              `${node.name}[${String(index)}]`,
+              value,
+              domain,
+            ),
           });
         }
         return new IntValue(0);
@@ -307,7 +343,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
 
       vars.set(node.name, {
         domain,
-        runtimeValue: value,
+        runtimeValue: this.boundaryTestValue(node.name, value, domain),
       });
       return new IntValue(0); // 正常動作として 0 を返す
     });
@@ -391,6 +427,60 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     const cond = node.cond.accept(this);
     return cond.value as boolean;
   }
+  private registerProgramFunctions(node: ProgramNode): void {
+    for (const child of node.body) {
+      if (child instanceof FunctionNode) {
+        child.accept(this);
+      }
+    }
+  }
+
+  private runFunctionBoundaryTests(): void {
+    this.didRunFunctionBoundaryTests = true;
+
+    for (const [name, func] of this.funcs.entries()) {
+      if (func.kind !== "user") {
+        continue;
+      }
+      this.boundaryTestLog?.(`test of ${name}():`);
+      this.runFunctionBoundaryTest(func.fn);
+    }
+  }
+
+  private runFunctionBoundaryTest(func: UserFunction): void {
+    const savedGlobalVars = new Map<string, Var>(
+      Array.from(this.envFrames[0].vars.entries(), ([name, variable]) => [
+        name,
+        { ...variable },
+      ]),
+    );
+    const args = func.params.map((param) =>
+      this.defaultValueForBoundaryTest(param.type),
+    );
+
+    try {
+      this.callUserFunction(func, args);
+    } finally {
+      this.envFrames[0].vars.clear();
+      for (const [name, variable] of savedGlobalVars) {
+        this.envFrames[0].vars.set(name, variable);
+      }
+    }
+  }
+
+  private defaultValueForBoundaryTest(type: string): RuntimeValue {
+    switch (type) {
+      case "int":
+      case "float":
+      case "string":
+      case "bool":
+      case "void":
+        return createDefaultValue(type);
+      default:
+        this.fail(`関数テスト用の引数型 ${type} は未対応です`);
+    }
+  }
+
   private defaultValue(type: string): RuntimeValue {
     switch (type) {
       case "int":
@@ -432,6 +522,52 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     }
   }
 
+  private boundaryTestValue(
+    name: string,
+    value: RuntimeValue,
+    domain: Var["domain"],
+  ): RuntimeValue {
+    if (!this.isBoundaryTestMode() || domain === undefined) {
+      return value;
+    }
+
+    switch (value.type) {
+      case "int":
+      case "float": {
+        const boundaryValue = createNumericValue(
+          value.type,
+          this.mode === "max-test" ? domain.max : domain.min,
+        );
+        this.logBoundaryTestAssignment(name, boundaryValue);
+        return boundaryValue;
+      }
+      default:
+        return value;
+    }
+  }
+
+  private shouldBoundaryTestFunctionParams(name: string): boolean {
+    if (!this.isBoundaryTestMode() || this.boundaryTestedFunctions.has(name)) {
+      return false;
+    }
+
+    this.boundaryTestedFunctions.add(name);
+    return true;
+  }
+
+  private logBoundaryTestAssignment(
+    name: string,
+    boundaryValue: RuntimeValue,
+  ): void {
+    this.boundaryTestLog?.(
+      `[${this.mode}] ${name} <- ${runtimeValueToString(boundaryValue)}`,
+    );
+  }
+
+  private isBoundaryTestMode(): boolean {
+    return this.mode === "max-test" || this.mode === "min-test";
+  }
+
   private storeArrayElement(
     name: string,
     variable: Var,
@@ -462,6 +598,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     const frame: EnvFrame = {
       name: func.name,
       vars: new Map<string, Var>(),
+      boundaryTestParams: this.shouldBoundaryTestFunctionParams(func.name),
     };
     this.envFrames.push(frame);
     try {
@@ -484,6 +621,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
 
         const domain =
           param.domain === undefined ? undefined : this.evalParamDomain(param);
+        variable.runtimeValue = this.boundaryTestValue(
+          param.name,
+          this.assumeDefined(
+            variable.runtimeValue,
+            `Internal interpreter error: uninitialized argument ${param.name}`,
+          ),
+          frame.boundaryTestParams ? domain : undefined,
+        );
         this.assertWithinDomain(
           param.name,
           this.assumeDefined(

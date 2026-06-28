@@ -8,21 +8,52 @@ export function createInterpretCommand(): Command {
   return new Command("interpret")
     .description("interpret and execute a source file")
     .argument("<file>", "source file path")
-    .action(async (file: string) => {
-      const source = await readSourceFile(file);
-      const input = await readPipedStdin();
-      try {
-        const ast = parseAndAnalyze(source);
-        const interpreter = new BoqqiInterpreter((txt: string) => {
-          process.stdout.write(txt);
-        }, input);
-        interpreter.visitProgram(ast);
-      } catch (error) {
-        if (handleCliError(error, source, file)) {
-          return;
-        }
+    .option("--max-test", "interpret with domain maximum values")
+    .option("--min-test", "interpret with domain minimum values")
+    .action(
+      async (
+        file: string,
+        options: { maxTest?: boolean; minTest?: boolean },
+      ) => {
+        const source = await readSourceFile(file);
+        const input = await readPipedStdin();
+        try {
+          const ast = parseAndAnalyze(source);
+          const maxTest = options.maxTest === true;
+          const minTest = options.minTest === true;
+          if (maxTest && minTest) {
+            process.stderr.write(
+              "--max-test and --min-test cannot be used together\n",
+            );
+            process.exitCode = 1;
+            return;
+          }
+          const boundaryTest = maxTest || minTest;
+          const writeBoundaryTestLog = (txt: string): void => {
+            process.stdout.write(`${txt}\n`);
+          };
 
-        throw error;
-      }
-    });
+          const interpreter = new BoqqiInterpreter(
+            (txt: string) => {
+              if (boundaryTest) {
+                return;
+              }
+              process.stdout.write(txt);
+            },
+            input,
+            {
+              mode: maxTest ? "max-test" : minTest ? "min-test" : "normal",
+              boundaryTestLog: boundaryTest ? writeBoundaryTestLog : undefined,
+            },
+          );
+          interpreter.visitProgram(ast);
+        } catch (error) {
+          if (handleCliError(error, source, file)) {
+            return;
+          }
+
+          throw error;
+        }
+      },
+    );
 }
