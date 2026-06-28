@@ -1,16 +1,19 @@
 import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
 import { SourceFrame } from "../diagnostics/sourceLocation.js";
 import { InputScanner } from "../io/inputScanner.js";
-import type { ScalarValueType, ValueType } from "../types/valueType.js";
 import {
   BoolValue,
   FloatValue,
   IntValue,
   StringValue,
   VoidValue,
+  createDefaultValue,
+  createNumericValue,
+  numericResultType,
   runtimeValueToString,
-} from "../visitor/interpreter/runtimeValue/valuableValue.js";
-import { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
+  type RuntimeValue,
+} from "../runtime/runtimeValue.js";
+import type { ScalarValueType, ValueType } from "../types/valueType.js";
 import {
   BytecodeProgram,
   DomainSpec,
@@ -120,7 +123,7 @@ export class BoqqiVM {
 
     this.pc = -1;
     for (const param of params) {
-      this.stack.push(this.defaultValue(param.type));
+      this.stack.push(this.defaultValueForBoundaryTest(param.type));
     }
     this.call(name, params.length);
 
@@ -157,21 +160,17 @@ export class BoqqiVM {
     this.pc = savedPc;
   }
 
-  private defaultValue(type: ValueType): RuntimeValue {
-    switch (type) {
-      case "int":
-        return new IntValue(0);
-      case "float":
-        return new FloatValue(0);
-      case "string":
-        return new StringValue("");
-      case "bool":
-        return new BoolValue(false);
-      case "void":
-        return new VoidValue();
-      default:
-        this.fail(`関数テスト用の引数型 ${type} は未対応です`);
+  private defaultValueForBoundaryTest(type: ValueType): RuntimeValue {
+    if (
+      type === "int" ||
+      type === "float" ||
+      type === "string" ||
+      type === "bool" ||
+      type === "void"
+    ) {
+      return createDefaultValue(type);
     }
+    this.fail(`関数テスト用の引数型 ${type} は未対応です`);
   }
 
   private execute(instruction: Instruction): void {
@@ -295,24 +294,24 @@ export class BoqqiVM {
     switch (op) {
       case "ADD":
         this.stack.push(
-          this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          createNumericValue(
+            numericResultType(left, right),
             leftValue + rightValue,
           ),
         );
         break;
       case "SUB":
         this.stack.push(
-          this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          createNumericValue(
+            numericResultType(left, right),
             leftValue - rightValue,
           ),
         );
         break;
       case "MUL":
         this.stack.push(
-          this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          createNumericValue(
+            numericResultType(left, right),
             leftValue * rightValue,
           ),
         );
@@ -322,8 +321,8 @@ export class BoqqiVM {
           this.fail("0 除算が検出されました");
         }
         this.stack.push(
-          this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          createNumericValue(
+            numericResultType(left, right),
             leftValue / rightValue,
           ),
         );
@@ -333,8 +332,8 @@ export class BoqqiVM {
           this.fail("0 除算が検出されました");
         }
         this.stack.push(
-          this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          createNumericValue(
+            numericResultType(left, right),
             leftValue % rightValue,
           ),
         );
@@ -603,23 +602,6 @@ export class BoqqiVM {
     return values;
   }
 
-  private numericResultType(
-    left: RuntimeValue,
-    right: RuntimeValue,
-  ): ValueType {
-    return left.type === "int" && right.type === "int" ? "int" : "float";
-  }
-
-  private numberToRuntimeValue(type: ValueType, value: number): RuntimeValue {
-    if (!Number.isFinite(value)) {
-      this.fail("計算結果が有限の数値ではありません");
-    }
-    if (type === "int") {
-      return new IntValue(Math.floor(value));
-    }
-    return new FloatValue(value);
-  }
-
   private boundaryTestValue(
     name: string,
     value: RuntimeValue,
@@ -632,7 +614,7 @@ export class BoqqiVM {
     switch (value.type) {
       case "int":
       case "float": {
-        const boundaryValue = this.numberToRuntimeValue(
+        const boundaryValue = createNumericValue(
           value.type,
           this.mode === "max-test" ? domain.max : domain.min,
         );

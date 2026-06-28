@@ -1,5 +1,4 @@
 import { Visitor } from "../visitor.js";
-import { RuntimeValue } from "./runtimeValue/runtimeValue.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
 import {
   BoolValue,
@@ -7,8 +6,12 @@ import {
   IntValue,
   StringValue,
   VoidValue,
+  createDefaultValue,
+  createNumericValue,
+  numericResultType,
   runtimeValueToString,
-} from "./runtimeValue/valuableValue.js";
+  type RuntimeValue,
+} from "../../runtime/runtimeValue.js";
 import { BinaryNode } from "../../ast/nodes/binary.js";
 import { BoolNode } from "../../ast/nodes/bool.js";
 import { IntNode } from "../../ast/nodes/int.js";
@@ -145,18 +148,18 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       // 実行
       switch (node.operator) {
         case "+":
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue + rightValue,
           );
         case "-":
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue - rightValue,
           );
         case "*":
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue * rightValue,
           );
         case "/":
@@ -164,16 +167,16 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
           if (rightValue === 0) {
             this.fail("0 除算が検出されました");
           }
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue / rightValue,
           );
         case "%":
           if (rightValue === 0) {
             this.fail("0 除算が検出されました");
           }
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue % rightValue,
           );
         default:
@@ -384,24 +387,6 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     });
   }
   // ヘルパー関数
-  private numericResultType(
-    left: RuntimeValue,
-    right: RuntimeValue,
-  ): RuntimeValueType {
-    return left.type === "int" && right.type === "int" ? "int" : "float";
-  }
-  private numberToRuntimeValue(
-    type: RuntimeValueType,
-    value: number,
-  ): RuntimeValue {
-    if (!Number.isFinite(value)) {
-      this.fail("計算結果が有限の数値ではありません");
-    }
-    if (type === "int") {
-      return new IntValue(Math.floor(value));
-    }
-    return new FloatValue(value);
-  }
   private evalWhileCondition(node: WhileNode): boolean {
     const cond = node.cond.accept(this);
     return cond.value as boolean;
@@ -409,13 +394,10 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   private defaultValue(type: string): RuntimeValue {
     switch (type) {
       case "int":
-        return new IntValue(0);
       case "float":
-        return new FloatValue(0.0);
       case "string":
-        return new StringValue("");
       case "bool":
-        return new BoolValue(false);
+        return createDefaultValue(type);
       default:
         this.fail(`型 ${type} は存在しません`);
     }

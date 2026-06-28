@@ -4,8 +4,8 @@ import {
   FloatValue,
   IntValue,
   StringValue,
-} from "../visitor/interpreter/runtimeValue/valuableValue.js";
-import type { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
+  type RuntimeValue,
+} from "../runtime/runtimeValue.js";
 
 export class InputScanner {
   private readonly tokens: string[];
