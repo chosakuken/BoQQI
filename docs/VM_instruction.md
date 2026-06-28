@@ -7,8 +7,8 @@
 | `PUSH_STRING`   | `value: string`                                                                                        | `string` 値をスタックに積む                                                                          |
 | `PUSH_BOOL`     | `value: boolean`                                                                                       | `bool` 値をスタックに積む                                                                            |
 | `PUSH_VOID`     | なし                                                                                                   | `void` 値をスタックに積む                                                                            |
-| `LOAD`          | `slot: number`, `name: string`, `scope: "local" \| "global"`                                           | 指定したスコープのローカル変数を読み出してスタックに積む                                             |
-| `STORE`         | `slot: number`, `name: string`, `scope: "local" \| "global"`                                           | スタックから値を取り出し、指定したスコープのローカル変数へ代入する                                   |
+| `LOAD`          | `slot: number`, `name: string`, `scope: "local" \| "global"`                                           | 指定したスコープの変数を読み出してスタックに積む                                                     |
+| `STORE`         | `slot: number`, `name: string`, `scope: "local" \| "global"`                                           | スタックから値を取り出し、指定したスコープの変数へ代入する                                           |
 | `DECLARE`       | `slot: number`, `name: string`, `type: ValueType`, `hasDomain: boolean`                                | ローカル変数を宣言し、スタック上の初期値を保存する。`hasDomain` が `true` の場合は範囲チェックも行う |
 | `DECLARE_ARRAY` | `slot: number`, `name: string`, `elementType: ScalarValueType`, `length: number`, `hasDomain: boolean` | 固定長配列を連続した local slot として宣言する。`slot` は先頭要素の slot                             |
 | `CHECK_LOCAL`   | `slot: number`, `name: string`, `type: ValueType`, `hasDomain: boolean`                                | 既存のローカル変数を検査する。主に関数引数の domain チェックに使う                                   |
@@ -78,6 +78,7 @@ VM はスタックマシンとして動作する。式の評価結果、関数�
 変数は call frame 内の local slot に保存する。関数内からグローバル変数を参照する場合、`scope: "global"` の `LOAD` / `STORE` / `LOAD_INDEX` / `STORE_INDEX` がグローバル frame を参照する。
 
 固定長配列は配列値としてスタックに積まない。`DECLARE_ARRAY` は `slot` から `length` 個の連続した local slot を確保し、各要素を `name[index]` として保存する。
+配列宣言時には、要素型のデフォルト値を要素数分スタックへ積んでから `DECLARE_ARRAY` を実行する。
 
 ## domain チェック
 
