@@ -1,14 +1,14 @@
 import { Command } from "commander";
-import { readFile } from "node:fs/promises";
 import { parse } from "../lib/parser/parse.js";
+import { readSourceFile, writeJson } from "./utils.js";
 
 export function createParserCommand(): Command {
   return new Command("parse")
-    .description("")
+    .description("parse a source file and print the parse tree as JSON")
     .argument("<file>", "source file path")
     .action(async (file: string) => {
-      const source = await readFile(file, "utf-8");
+      const source = await readSourceFile(file);
       const result = parse(source);
-      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      writeJson(result);
     });
 }

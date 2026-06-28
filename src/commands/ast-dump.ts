@@ -1,14 +1,14 @@
 import { Command } from "commander";
-import { readFile } from "node:fs/promises";
 import { parseToAst } from "../lib/ast/parseToAst.js";
+import { readSourceFile, writeJson } from "./utils.js";
 
 export function createAstDumpCommand(): Command {
   return new Command("ast-dump")
-    .description("")
+    .description("parse a source file and print its AST as JSON")
     .argument("<file>", "source file path")
     .action(async (file: string) => {
-      const source = await readFile(file, "utf-8");
+      const source = await readSourceFile(file);
       const result = parseToAst(source);
-      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      writeJson(result);
     });
 }
