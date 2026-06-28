@@ -32,6 +32,7 @@ interface CallFrame {
   readonly locals: LocalSlot[];
   readonly returnType: ValueType;
   readonly hasReturnDomain: boolean;
+  readonly maxTestParams: boolean;
 }
 
 export type BoqqiVMExecutionMode = "normal" | "max-test";
@@ -48,7 +49,9 @@ export class BoqqiVM {
   private readonly input: InputScanner;
   private readonly mode: BoqqiVMExecutionMode;
   private readonly maxTestLog?: (text: string) => void;
+  private readonly maxTestedFunctions = new Set<string>();
   private currentInstruction?: Instruction;
+  private didRunFunctionMaxTests = false;
 
   constructor(
     private readonly program: BytecodeProgram,
@@ -65,10 +68,16 @@ export class BoqqiVM {
       locals: this.createLocalSlots(program.globalLocalCount),
       returnType: "int",
       hasReturnDomain: false,
+      maxTestParams: false,
     });
   }
 
   run(): RuntimeValue {
+    if (this.mode === "max-test" && !this.didRunFunctionMaxTests) {
+      this.runFunctionMaxTests();
+      this.maxTestLog?.("test of main:");
+    }
+
     while (this.pc < this.program.instructions.length) {
       const instruction = this.program.instructions[this.pc];
 
@@ -89,6 +98,81 @@ export class BoqqiVM {
     }
 
     return new IntValue(0);
+  }
+
+  private runFunctionMaxTests(): void {
+    this.didRunFunctionMaxTests = true;
+
+    for (const func of this.program.functions.values()) {
+      this.maxTestLog?.(`test of ${func.name}():`);
+      this.runFunctionMaxTest(func.name, func.params);
+    }
+  }
+
+  private runFunctionMaxTest(
+    name: string,
+    params: readonly { readonly type: ValueType }[],
+  ): void {
+    const savedPc = this.pc;
+    const savedStackLength = this.stack.length;
+    const savedGlobalLocals = this.frames[0].locals.map((local) => ({
+      ...local,
+    }));
+
+    this.pc = -1;
+    for (const param of params) {
+      this.stack.push(this.defaultValue(param.type));
+    }
+    this.call(name, params.length);
+
+    while (this.frames.length > 1) {
+      if (this.pc < 0 || this.pc >= this.program.instructions.length) {
+        this.fail(
+          `関数 ${name} の最大値テスト中に不正な命令位置へ移動しました`,
+        );
+      }
+
+      const instruction = this.program.instructions[this.pc];
+      this.pc += 1;
+      this.currentInstruction = instruction;
+      try {
+        this.execute(instruction);
+      } catch (error) {
+        if (error instanceof BoqqiRuntimeError) {
+          throw error;
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+        this.fail(message);
+      } finally {
+        this.currentInstruction = undefined;
+      }
+    }
+
+    this.stack.length = savedStackLength;
+    this.frames[0].locals.splice(
+      0,
+      this.frames[0].locals.length,
+      ...savedGlobalLocals,
+    );
+    this.pc = savedPc;
+  }
+
+  private defaultValue(type: ValueType): RuntimeValue {
+    switch (type) {
+      case "int":
+        return new IntValue(0);
+      case "float":
+        return new FloatValue(0);
+      case "string":
+        return new StringValue("");
+      case "bool":
+        return new BoolValue(false);
+      case "void":
+        return new VoidValue();
+      default:
+        this.fail(`関数テスト用の引数型 ${type} は未対応です`);
+    }
   }
 
   private execute(instruction: Instruction): void {
@@ -389,6 +473,9 @@ export class BoqqiVM {
     local.name = name;
     local.type = type;
     local.domain = domain;
+    if (this.currentFrame().maxTestParams) {
+      local.runtimeValue = this.maxTestValue(name, value, domain);
+    }
   }
 
   private storeLocal(
@@ -458,6 +545,7 @@ export class BoqqiVM {
       locals,
       returnType: func.returnType,
       hasReturnDomain: func.hasReturnDomain,
+      maxTestParams: this.shouldMaxTestFunctionParams(name),
     });
     this.jump(func.entryPc);
   }
@@ -551,6 +639,15 @@ export class BoqqiVM {
       default:
         return value;
     }
+  }
+
+  private shouldMaxTestFunctionParams(name: string): boolean {
+    if (this.mode !== "max-test" || this.maxTestedFunctions.has(name)) {
+      return false;
+    }
+
+    this.maxTestedFunctions.add(name);
+    return true;
   }
 
   private logMaxTestAssignment(name: string, maxValue: RuntimeValue): void {
