@@ -34,19 +34,28 @@ interface CallFrame {
   readonly hasReturnDomain: boolean;
 }
 
+export type BoqqiVMExecutionMode = "normal" | "max-test";
+
+export interface BoqqiVMOptions {
+  readonly mode?: BoqqiVMExecutionMode;
+}
+
 export class BoqqiVM {
   private pc = 0;
   private readonly stack: RuntimeValue[] = []; // スタックマシン
   private readonly frames: CallFrame[] = []; // 変数表
   private readonly input: InputScanner;
+  private readonly mode: BoqqiVMExecutionMode;
   private currentInstruction?: Instruction;
 
   constructor(
     private readonly program: BytecodeProgram,
     private readonly output: (text: string) => void,
     inputSource = "",
+    options: BoqqiVMOptions = {},
   ) {
     this.input = new InputScanner(inputSource);
+    this.mode = options.mode ?? "normal";
     this.frames.push({
       functionName: "global",
       returnPc: -1,
@@ -310,12 +319,9 @@ export class BoqqiVM {
       slot + indexValue,
       `${name}[${String(indexValue)}]`,
     );
+    const elementName = `${name}[${String(indexValue)}]`;
 
-    this.assertWithinDomain(
-      `${name}[${String(indexValue)}]`,
-      value,
-      local.domain,
-    );
+    this.assertWithinDomain(elementName, value, local.domain);
     local.runtimeValue = value;
   }
 
@@ -332,7 +338,7 @@ export class BoqqiVM {
     local.name = name;
     local.type = type;
     local.domain = domain;
-    local.runtimeValue = value;
+    local.runtimeValue = this.maxTestValue(value, domain);
   }
 
   private declareArrayLocal(
@@ -360,7 +366,7 @@ export class BoqqiVM {
       local.name = elementName;
       local.type = elementType;
       local.domain = domain;
-      local.runtimeValue = value;
+      local.runtimeValue = this.maxTestValue(value, domain);
     }
   }
 
@@ -521,6 +527,24 @@ export class BoqqiVM {
       return new IntValue(Math.floor(value));
     }
     return new FloatValue(value);
+  }
+
+  private maxTestValue(
+    value: RuntimeValue,
+    domain: DomainSpec | undefined,
+  ): RuntimeValue {
+    if (this.mode !== "max-test" || domain === undefined) {
+      return value;
+    }
+
+    switch (value.type) {
+      case "int":
+        return this.numberToRuntimeValue("int", domain.max);
+      case "float":
+        return this.numberToRuntimeValue("float", domain.max);
+      default:
+        return value;
+    }
   }
 
   private assertWithinDomain(

@@ -17,7 +17,8 @@ export function createRunCommand(): Command {
   return new Command("run")
     .description("")
     .argument("<file>", "bytecode JSON file path")
-    .action(async (file: string) => {
+    .option("--max-test", "run VM with domain maximum values")
+    .action(async (file: string, options: { maxTest?: boolean }) => {
       const bytecodeJson = await readFile(file, "utf-8");
       const input = await readPipedStdin();
       try {
@@ -28,6 +29,7 @@ export function createRunCommand(): Command {
             process.stdout.write(txt);
           },
           input,
+          { mode: options.maxTest === true ? "max-test" : "normal" },
         );
         vm.run();
       } catch (error) {
