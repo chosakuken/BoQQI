@@ -32,6 +32,14 @@ interface CallFrame {
   readonly locals: LocalSlot[];
   readonly returnType: ValueType;
   readonly hasReturnDomain: boolean;
+  readonly boundaryTestParams: boolean;
+}
+
+export type BoqqiVMExecutionMode = "normal" | "max-test" | "min-test";
+
+export interface BoqqiVMOptions {
+  readonly mode?: BoqqiVMExecutionMode;
+  readonly boundaryTestLog?: (text: string) => void;
 }
 
 export class BoqqiVM {
@@ -39,24 +47,37 @@ export class BoqqiVM {
   private readonly stack: RuntimeValue[] = []; // スタックマシン
   private readonly frames: CallFrame[] = []; // 変数表
   private readonly input: InputScanner;
+  private readonly mode: BoqqiVMExecutionMode;
+  private readonly boundaryTestLog?: (text: string) => void;
+  private readonly boundaryTestedFunctions = new Set<string>();
   private currentInstruction?: Instruction;
+  private didRunFunctionBoundaryTests = false;
 
   constructor(
     private readonly program: BytecodeProgram,
     private readonly output: (text: string) => void,
     inputSource = "",
+    options: BoqqiVMOptions = {},
   ) {
     this.input = new InputScanner(inputSource);
+    this.mode = options.mode ?? "normal";
+    this.boundaryTestLog = options.boundaryTestLog;
     this.frames.push({
       functionName: "global",
       returnPc: -1,
       locals: this.createLocalSlots(program.globalLocalCount),
       returnType: "int",
       hasReturnDomain: false,
+      boundaryTestParams: false,
     });
   }
 
   run(): RuntimeValue {
+    if (this.isBoundaryTestMode() && !this.didRunFunctionBoundaryTests) {
+      this.runFunctionBoundaryTests();
+      this.boundaryTestLog?.("test of main:");
+    }
+
     while (this.pc < this.program.instructions.length) {
       const instruction = this.program.instructions[this.pc];
 
@@ -77,6 +98,81 @@ export class BoqqiVM {
     }
 
     return new IntValue(0);
+  }
+
+  private runFunctionBoundaryTests(): void {
+    this.didRunFunctionBoundaryTests = true;
+
+    for (const func of this.program.functions.values()) {
+      this.boundaryTestLog?.(`test of ${func.name}():`);
+      this.runFunctionBoundaryTest(func.name, func.params);
+    }
+  }
+
+  private runFunctionBoundaryTest(
+    name: string,
+    params: readonly { readonly type: ValueType }[],
+  ): void {
+    const savedPc = this.pc;
+    const savedStackLength = this.stack.length;
+    const savedGlobalLocals = this.frames[0].locals.map((local) => ({
+      ...local,
+    }));
+
+    this.pc = -1;
+    for (const param of params) {
+      this.stack.push(this.defaultValue(param.type));
+    }
+    this.call(name, params.length);
+
+    while (this.frames.length > 1) {
+      if (this.pc < 0 || this.pc >= this.program.instructions.length) {
+        this.fail(
+          `関数 ${name} の境界値テスト中に不正な命令位置へ移動しました`,
+        );
+      }
+
+      const instruction = this.program.instructions[this.pc];
+      this.pc += 1;
+      this.currentInstruction = instruction;
+      try {
+        this.execute(instruction);
+      } catch (error) {
+        if (error instanceof BoqqiRuntimeError) {
+          throw error;
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+        this.fail(message);
+      } finally {
+        this.currentInstruction = undefined;
+      }
+    }
+
+    this.stack.length = savedStackLength;
+    this.frames[0].locals.splice(
+      0,
+      this.frames[0].locals.length,
+      ...savedGlobalLocals,
+    );
+    this.pc = savedPc;
+  }
+
+  private defaultValue(type: ValueType): RuntimeValue {
+    switch (type) {
+      case "int":
+        return new IntValue(0);
+      case "float":
+        return new FloatValue(0);
+      case "string":
+        return new StringValue("");
+      case "bool":
+        return new BoolValue(false);
+      case "void":
+        return new VoidValue();
+      default:
+        this.fail(`関数テスト用の引数型 ${type} は未対応です`);
+    }
   }
 
   private execute(instruction: Instruction): void {
@@ -310,12 +406,9 @@ export class BoqqiVM {
       slot + indexValue,
       `${name}[${String(indexValue)}]`,
     );
+    const elementName = `${name}[${String(indexValue)}]`;
 
-    this.assertWithinDomain(
-      `${name}[${String(indexValue)}]`,
-      value,
-      local.domain,
-    );
+    this.assertWithinDomain(elementName, value, local.domain);
     local.runtimeValue = value;
   }
 
@@ -332,7 +425,7 @@ export class BoqqiVM {
     local.name = name;
     local.type = type;
     local.domain = domain;
-    local.runtimeValue = value;
+    local.runtimeValue = this.boundaryTestValue(name, value, domain);
   }
 
   private declareArrayLocal(
@@ -360,7 +453,7 @@ export class BoqqiVM {
       local.name = elementName;
       local.type = elementType;
       local.domain = domain;
-      local.runtimeValue = value;
+      local.runtimeValue = this.boundaryTestValue(elementName, value, domain);
     }
   }
 
@@ -371,15 +464,19 @@ export class BoqqiVM {
     domain: DomainSpec | undefined,
   ): void {
     const local = this.localSlot(this.currentFrame(), slot, name);
-    const value = this.assumeDefined(
+    let value = this.assumeDefined(
       local.runtimeValue,
       `Internal VM error: uninitialized local ${name}`,
     );
 
+    if (this.currentFrame().boundaryTestParams) {
+      value = this.boundaryTestValue(name, value, domain);
+    }
     this.assertWithinDomain(name, value, domain);
     local.name = name;
     local.type = type;
     local.domain = domain;
+    local.runtimeValue = value;
   }
 
   private storeLocal(
@@ -449,6 +546,7 @@ export class BoqqiVM {
       locals,
       returnType: func.returnType,
       hasReturnDomain: func.hasReturnDomain,
+      boundaryTestParams: this.shouldBoundaryTestFunctionParams(name),
     });
     this.jump(func.entryPc);
   }
@@ -521,6 +619,52 @@ export class BoqqiVM {
       return new IntValue(Math.floor(value));
     }
     return new FloatValue(value);
+  }
+
+  private boundaryTestValue(
+    name: string,
+    value: RuntimeValue,
+    domain: DomainSpec | undefined,
+  ): RuntimeValue {
+    if (!this.isBoundaryTestMode() || domain === undefined) {
+      return value;
+    }
+
+    switch (value.type) {
+      case "int":
+      case "float": {
+        const boundaryValue = this.numberToRuntimeValue(
+          value.type,
+          this.mode === "max-test" ? domain.max : domain.min,
+        );
+        this.logBoundaryTestAssignment(name, boundaryValue);
+        return boundaryValue;
+      }
+      default:
+        return value;
+    }
+  }
+
+  private shouldBoundaryTestFunctionParams(name: string): boolean {
+    if (!this.isBoundaryTestMode() || this.boundaryTestedFunctions.has(name)) {
+      return false;
+    }
+
+    this.boundaryTestedFunctions.add(name);
+    return true;
+  }
+
+  private logBoundaryTestAssignment(
+    name: string,
+    boundaryValue: RuntimeValue,
+  ): void {
+    this.boundaryTestLog?.(
+      `[${this.mode}] ${name} <- ${runtimeValueToString(boundaryValue)}`,
+    );
+  }
+
+  private isBoundaryTestMode(): boolean {
+    return this.mode === "max-test" || this.mode === "min-test";
   }
 
   private assertWithinDomain(
