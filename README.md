@@ -11,7 +11,8 @@ ANTLR による字句解析・構文解析、AST 生成、意味解析、イン�
 - 変数宣言、代入、四則演算、比較演算
 - `if` / `else`、`while`
 - 関数定義、関数呼び出し、`return`
-- 組み込み関数 `print`
+- 組み込み関数 `print` / `println`
+- 標準入力から値を読む `scanInt` / `scanFloat` / `scanString` / `scanBool`
 - ソースコードのトークン列、構文木、AST の JSON 出力
 - AST からバイトコード JSON へのコンパイル
 - バイトコード JSON を実行する VM
@@ -33,27 +34,31 @@ npm link
 
 ## Usage
 
-`samples/add.txt` を実行します。
+`samples/sum.txt` を実行します。
 
 ```txt
-int{max: 100, min: 0} x = 10;
-int{max: 100, min: 0} y = 20;
-
-if (x < y) {
-  print(x + y);
+function sum(int{max: 1000, min: 0} n): int{max: 1000000, min: 0} {
+  if (n == 0) {
+    return 0;
+  }
+  return n + sum(n - 1);
 }
+
+int{max: 100000000000, min: 10} a = 30;
+
+println(sum(a));
 ```
 
 サンプルプログラムをインタプリタで実行します。
 
 ```sh
-boqqi interprete samples/add.txt
+boqqi interprete samples/sum.txt
 ```
 
 出力例:
 
 ```txt
-30
+465
 ```
 
 ソースコードをバイトコード JSON にコンパイルします。
@@ -61,14 +66,14 @@ boqqi interprete samples/add.txt
 
 ```sh
 # out/ は作成されている前提
-boqqi compile samples/add.txt > out/add.json
-boqqi run out/add.json
+boqqi compile samples/sum.txt > out/sum.json
+boqqi run out/sum.json
 ```
 
 出力例:
 
 ```txt
-30
+465
 ```
 
 ## Commands
@@ -81,6 +86,16 @@ boqqi interprete <file>  ソースコードを直接実行
 boqqi compile <file>     ソースコードをバイトコード JSON に変換
 boqqi run <file>         バイトコード JSON を VM で実行
 ```
+
+`boqqi run` には、定義域付きの数値を境界値ケースで実行する `--max-test` / `--min-test` オプションがあります。
+
+```sh
+boqqi compile samples/comp.txt > out/comp.json
+boqqi run out/comp.json --max-test
+boqqi run out/comp.json --min-test
+```
+
+`--max-test` と `--min-test` は同時に指定できません。各関数を一度ずつ境界値ケースで実行してから、main 相当のトップレベル処理を実行します。domain 付きの `int` / `float` 変数または配列要素を宣言するときと、関数実体を最初に実行するときの domain 付き引数に、`--max-test` では `domain.max`、`--min-test` では `domain.min` を採用し、その値を以降の VM 実行へ流します。このモードではプログラムの標準出力は抑制され、境界値を代入したタイミングが `[max-test] name <- value` または `[min-test] name <- value` 形式のテストログとして出力されます。関数テストは `test of name():`、トップレベル処理は `test of main:` の見出しで出力されます。境界方向の代表値テストであり、全経路の完全な値安全証明ではありません。
 
 ## Development
 
