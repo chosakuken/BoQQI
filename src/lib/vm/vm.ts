@@ -32,14 +32,14 @@ interface CallFrame {
   readonly locals: LocalSlot[];
   readonly returnType: ValueType;
   readonly hasReturnDomain: boolean;
-  readonly maxTestParams: boolean;
+  readonly boundaryTestParams: boolean;
 }
 
-export type BoqqiVMExecutionMode = "normal" | "max-test";
+export type BoqqiVMExecutionMode = "normal" | "max-test" | "min-test";
 
 export interface BoqqiVMOptions {
   readonly mode?: BoqqiVMExecutionMode;
-  readonly maxTestLog?: (text: string) => void;
+  readonly boundaryTestLog?: (text: string) => void;
 }
 
 export class BoqqiVM {
@@ -48,10 +48,10 @@ export class BoqqiVM {
   private readonly frames: CallFrame[] = []; // 変数表
   private readonly input: InputScanner;
   private readonly mode: BoqqiVMExecutionMode;
-  private readonly maxTestLog?: (text: string) => void;
-  private readonly maxTestedFunctions = new Set<string>();
+  private readonly boundaryTestLog?: (text: string) => void;
+  private readonly boundaryTestedFunctions = new Set<string>();
   private currentInstruction?: Instruction;
-  private didRunFunctionMaxTests = false;
+  private didRunFunctionBoundaryTests = false;
 
   constructor(
     private readonly program: BytecodeProgram,
@@ -61,21 +61,21 @@ export class BoqqiVM {
   ) {
     this.input = new InputScanner(inputSource);
     this.mode = options.mode ?? "normal";
-    this.maxTestLog = options.maxTestLog;
+    this.boundaryTestLog = options.boundaryTestLog;
     this.frames.push({
       functionName: "global",
       returnPc: -1,
       locals: this.createLocalSlots(program.globalLocalCount),
       returnType: "int",
       hasReturnDomain: false,
-      maxTestParams: false,
+      boundaryTestParams: false,
     });
   }
 
   run(): RuntimeValue {
-    if (this.mode === "max-test" && !this.didRunFunctionMaxTests) {
-      this.runFunctionMaxTests();
-      this.maxTestLog?.("test of main:");
+    if (this.isBoundaryTestMode() && !this.didRunFunctionBoundaryTests) {
+      this.runFunctionBoundaryTests();
+      this.boundaryTestLog?.("test of main:");
     }
 
     while (this.pc < this.program.instructions.length) {
@@ -100,16 +100,16 @@ export class BoqqiVM {
     return new IntValue(0);
   }
 
-  private runFunctionMaxTests(): void {
-    this.didRunFunctionMaxTests = true;
+  private runFunctionBoundaryTests(): void {
+    this.didRunFunctionBoundaryTests = true;
 
     for (const func of this.program.functions.values()) {
-      this.maxTestLog?.(`test of ${func.name}():`);
-      this.runFunctionMaxTest(func.name, func.params);
+      this.boundaryTestLog?.(`test of ${func.name}():`);
+      this.runFunctionBoundaryTest(func.name, func.params);
     }
   }
 
-  private runFunctionMaxTest(
+  private runFunctionBoundaryTest(
     name: string,
     params: readonly { readonly type: ValueType }[],
   ): void {
@@ -128,7 +128,7 @@ export class BoqqiVM {
     while (this.frames.length > 1) {
       if (this.pc < 0 || this.pc >= this.program.instructions.length) {
         this.fail(
-          `関数 ${name} の最大値テスト中に不正な命令位置へ移動しました`,
+          `関数 ${name} の境界値テスト中に不正な命令位置へ移動しました`,
         );
       }
 
@@ -425,7 +425,7 @@ export class BoqqiVM {
     local.name = name;
     local.type = type;
     local.domain = domain;
-    local.runtimeValue = this.maxTestValue(name, value, domain);
+    local.runtimeValue = this.boundaryTestValue(name, value, domain);
   }
 
   private declareArrayLocal(
@@ -453,7 +453,7 @@ export class BoqqiVM {
       local.name = elementName;
       local.type = elementType;
       local.domain = domain;
-      local.runtimeValue = this.maxTestValue(elementName, value, domain);
+      local.runtimeValue = this.boundaryTestValue(elementName, value, domain);
     }
   }
 
@@ -464,18 +464,19 @@ export class BoqqiVM {
     domain: DomainSpec | undefined,
   ): void {
     const local = this.localSlot(this.currentFrame(), slot, name);
-    const value = this.assumeDefined(
+    let value = this.assumeDefined(
       local.runtimeValue,
       `Internal VM error: uninitialized local ${name}`,
     );
 
+    if (this.currentFrame().boundaryTestParams) {
+      value = this.boundaryTestValue(name, value, domain);
+    }
     this.assertWithinDomain(name, value, domain);
     local.name = name;
     local.type = type;
     local.domain = domain;
-    if (this.currentFrame().maxTestParams) {
-      local.runtimeValue = this.maxTestValue(name, value, domain);
-    }
+    local.runtimeValue = value;
   }
 
   private storeLocal(
@@ -545,7 +546,7 @@ export class BoqqiVM {
       locals,
       returnType: func.returnType,
       hasReturnDomain: func.hasReturnDomain,
-      maxTestParams: this.shouldMaxTestFunctionParams(name),
+      boundaryTestParams: this.shouldBoundaryTestFunctionParams(name),
     });
     this.jump(func.entryPc);
   }
@@ -620,40 +621,50 @@ export class BoqqiVM {
     return new FloatValue(value);
   }
 
-  private maxTestValue(
+  private boundaryTestValue(
     name: string,
     value: RuntimeValue,
     domain: DomainSpec | undefined,
   ): RuntimeValue {
-    if (this.mode !== "max-test" || domain === undefined) {
+    if (!this.isBoundaryTestMode() || domain === undefined) {
       return value;
     }
 
     switch (value.type) {
       case "int":
       case "float": {
-        const maxValue = this.numberToRuntimeValue(value.type, domain.max);
-        this.logMaxTestAssignment(name, maxValue);
-        return maxValue;
+        const boundaryValue = this.numberToRuntimeValue(
+          value.type,
+          this.mode === "max-test" ? domain.max : domain.min,
+        );
+        this.logBoundaryTestAssignment(name, boundaryValue);
+        return boundaryValue;
       }
       default:
         return value;
     }
   }
 
-  private shouldMaxTestFunctionParams(name: string): boolean {
-    if (this.mode !== "max-test" || this.maxTestedFunctions.has(name)) {
+  private shouldBoundaryTestFunctionParams(name: string): boolean {
+    if (!this.isBoundaryTestMode() || this.boundaryTestedFunctions.has(name)) {
       return false;
     }
 
-    this.maxTestedFunctions.add(name);
+    this.boundaryTestedFunctions.add(name);
     return true;
   }
 
-  private logMaxTestAssignment(name: string, maxValue: RuntimeValue): void {
-    this.maxTestLog?.(
-      `[max-test] ${name} <- ${runtimeValueToString(maxValue)}`,
+  private logBoundaryTestAssignment(
+    name: string,
+    boundaryValue: RuntimeValue,
+  ): void {
+    this.boundaryTestLog?.(
+      `[${this.mode}] ${name} <- ${runtimeValueToString(boundaryValue)}`,
     );
+  }
+
+  private isBoundaryTestMode(): boolean {
+    return this.mode === "max-test" || this.mode === "min-test";
   }
 
   private assertWithinDomain(
