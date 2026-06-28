@@ -32,6 +32,11 @@ import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
 import { WhileNode } from "../../ast/nodes/while.js";
 import { IndexNode } from "../../ast/nodes/index.js";
+import {
+  arrayElementType,
+  isArrayType,
+  type RuntimeValueType,
+} from "../../types/valueType.js";
 
 interface Var {
   domain?: {
@@ -40,7 +45,7 @@ interface Var {
   };
   runtimeValue?: RuntimeValue;
   arrayLength?: number;
-  elementType?: string;
+  elementType?: RuntimeValueType;
 }
 
 interface EnvFrame {
@@ -268,9 +273,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       const vars = this.currentEnvFrame().vars;
       const domain =
         node.domain === undefined ? undefined : this.evalDomain(node);
-      if (this.isArrayType(node.type)) {
+      if (isArrayType(node.type)) {
         const length = node.arrayLength ?? 0;
-        const elementType = node.type.slice(0, -2);
+        const elementType = arrayElementType(node.type);
         vars.set(node.name, {
           domain,
           arrayLength: length,
@@ -379,10 +384,16 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     });
   }
   // ヘルパー関数
-  private numericResultType(left: RuntimeValue, right: RuntimeValue): string {
+  private numericResultType(
+    left: RuntimeValue,
+    right: RuntimeValue,
+  ): RuntimeValueType {
     return left.type === "int" && right.type === "int" ? "int" : "float";
   }
-  private numberToRuntimeValue(type: string, value: number): RuntimeValue {
+  private numberToRuntimeValue(
+    type: RuntimeValueType,
+    value: number,
+  ): RuntimeValue {
     if (!Number.isFinite(value)) {
       this.fail("計算結果が有限の数値ではありません");
     }
@@ -626,15 +637,6 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       );
     }
     return indexValue;
-  }
-
-  private isArrayType(type: string): boolean {
-    return (
-      type === "int[]" ||
-      type === "float[]" ||
-      type === "string[]" ||
-      type === "bool[]"
-    );
   }
 
   private currentEnvFrame(): EnvFrame {

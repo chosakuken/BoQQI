@@ -1,5 +1,7 @@
+import type { RuntimeValueType } from "../../../types/valueType.js";
+
 export interface ValuableValue<T> {
-  readonly type: string;
+  readonly type: RuntimeValueType;
   readonly value: T;
 }
 

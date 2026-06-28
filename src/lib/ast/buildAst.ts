@@ -48,6 +48,11 @@ import type { StatementNode } from "./nodes/statement.js";
 import { StringNode } from "./nodes/string.js";
 import { VarNode } from "./nodes/var.js";
 import { WhileNode } from "./nodes/while.js";
+import {
+  isNumericArrayType,
+  isNumericType,
+  parseValueType,
+} from "../types/valueType.js";
 
 export function buildProgramAst(ctx: ProgramContext): ProgramNode {
   return new ProgramNode(
@@ -194,7 +199,7 @@ export function buildReturnTypeAst(ctx: ReturnTypeContext): ReturnTypeNode {
   const domain =
     domainContext === null ? undefined : buildDomainAst(domainContext);
 
-  if ((type === "int" || type === "float") && domain === undefined) {
+  if (requiresNumericDomain(type) && domain === undefined) {
     throw new Error(`${type} 型の戻り値には定義域が必要です: ${ctx.getText()}`);
   }
 
@@ -218,7 +223,7 @@ export function buildParamAst(ctx: ParamContext): ParamNode {
   const domain =
     domainContext === null ? undefined : buildDomainAst(domainContext);
 
-  if ((type === "int" || type === "float") && domain === undefined) {
+  if (requiresNumericDomain(type) && domain === undefined) {
     throw new Error(`${type} 型の引数には定義域が必要です: ${ctx.getText()}`);
   }
 
@@ -253,13 +258,7 @@ export function buildDeclareAst(ctx: DeclarationContext): DeclareNode {
   const domain =
     domainContext === null ? undefined : buildDomainAst(domainContext);
 
-  if (
-    (type === "int" ||
-      type === "float" ||
-      type === "int[]" ||
-      type === "float[]") &&
-    domain === undefined
-  ) {
+  if (requiresNumericDomain(type) && domain === undefined) {
     throw new Error(`${type} 型の宣言には定義域が必要です: ${ctx.getText()}`);
   }
 
@@ -297,6 +296,14 @@ function getDeclaredArrayLength(ctx: DeclarationContext): number | undefined {
     throw new Error(`配列長が不正です: ${arrayType.getText()}`);
   }
   return length;
+}
+
+function requiresNumericDomain(type: string): boolean {
+  const valueType = parseValueType(type);
+  return (
+    valueType !== undefined &&
+    (isNumericType(valueType) || isNumericArrayType(valueType))
+  );
 }
 
 export function buildDomainAst(ctx: DomainContext): DomainNode {

@@ -1,6 +1,7 @@
 import { BoqqiRuntimeError } from "../diagnostics/runtimeError.js";
 import { SourceFrame } from "../diagnostics/sourceLocation.js";
 import { InputScanner } from "../io/inputScanner.js";
+import type { ScalarValueType, ValueType } from "../types/valueType.js";
 import {
   BoolValue,
   FloatValue,
@@ -15,8 +16,6 @@ import {
   DomainSpec,
   Instruction,
   LocalScope,
-  ScalarValueType,
-  ValueType,
 } from "./instruction.js";
 
 interface LocalSlot {

@@ -1,4 +1,4 @@
-import type { ScalarValueType } from "../vm/instruction.js";
+import type { ScalarValueType } from "../types/valueType.js";
 import {
   BoolValue,
   FloatValue,
