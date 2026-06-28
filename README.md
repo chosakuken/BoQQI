@@ -52,7 +52,7 @@ println(sum(a));
 サンプルプログラムをインタプリタで実行します。
 
 ```sh
-boqqi interprete samples/sum.txt
+boqqi interpret samples/sum.txt
 ```
 
 出力例:
@@ -82,7 +82,7 @@ boqqi run out/sum.json
 boqqi lex <file>         トークン列を JSON で出力
 boqqi parse <file>       構文解析結果を JSON で出力
 boqqi ast-dump <file>    AST を JSON で出力
-boqqi interprete <file>  ソースコードを直接実行
+boqqi interpret <file>   ソースコードを直接実行
 boqqi compile <file>     ソースコードをバイトコード JSON に変換
 boqqi run <file>         バイトコード JSON を VM で実行
 ```

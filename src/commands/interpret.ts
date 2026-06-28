@@ -4,8 +4,8 @@ import { BoqqiInterpreter } from "../lib/visitor/interpreter/interpreter.js";
 import { readPipedStdin } from "./stdin.js";
 import { handleCliError, parseAndAnalyze, readSourceFile } from "./utils.js";
 
-export function createInterpreteCommand(): Command {
-  return new Command("interprete")
+export function createInterpretCommand(): Command {
+  return new Command("interpret")
     .description("interpret and execute a source file")
     .argument("<file>", "source file path")
     .action(async (file: string) => {
