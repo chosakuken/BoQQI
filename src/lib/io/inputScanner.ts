@@ -1,11 +1,11 @@
-import type { ScalarValueType } from "../vm/instruction.js";
+import type { ScalarValueType } from "../types/valueType.js";
 import {
   BoolValue,
   FloatValue,
   IntValue,
   StringValue,
-} from "../visitor/interpreter/runtimeValue/valuableValue.js";
-import type { RuntimeValue } from "../visitor/interpreter/runtimeValue/runtimeValue.js";
+  type RuntimeValue,
+} from "../runtime/runtimeValue.js";
 
 export class InputScanner {
   private readonly tokens: string[];

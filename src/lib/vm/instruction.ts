@@ -1,8 +1,5 @@
 import { SourceLocation } from "../diagnostics/sourceLocation.js";
-
-export type ScalarValueType = "int" | "float" | "string" | "bool";
-export type ArrayType = `${ScalarValueType}[]`;
-export type ValueType = ScalarValueType | ArrayType | "void";
+import type { ScalarValueType, ValueType } from "../types/valueType.js";
 
 export interface DomainSpec {
   readonly min: number;

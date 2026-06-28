@@ -21,13 +21,18 @@ import { StringNode } from "../../ast/nodes/string.js";
 import { VarNode } from "../../ast/nodes/var.js";
 import { WhileNode } from "../../ast/nodes/while.js";
 import {
+  arrayElementType,
+  assertValueType,
+  isArrayType,
+  type ScalarValueType,
+  type ValueType,
+} from "../../types/valueType.js";
+import {
   BytecodeProgram,
   CompiledFunction,
   Instruction,
   LocalScope,
   ParamInfo,
-  ScalarValueType,
-  ValueType,
 } from "../../vm/instruction.js";
 import { Visitor } from "../visitor.js";
 
@@ -205,13 +210,13 @@ class BoqqiCompiler implements Visitor<void> {
       node.domain.min.accept(this);
     }
 
-    if (this.isArrayType(type)) {
+    if (isArrayType(type)) {
       if (node.initValue !== undefined) {
         throw new Error(`配列 ${node.name} は一括初期化できません`);
       }
 
       const length = this.arrayLength(symbol);
-      const elementType = this.arrayElementType(type);
+      const elementType = arrayElementType(type);
       for (let index = 0; index < length; index += 1) {
         this.emitDefaultValue(elementType, node);
       }
@@ -249,7 +254,7 @@ class BoqqiCompiler implements Visitor<void> {
 
   visitVar(node: VarNode): void {
     const resolved = this.resolveLocal(node.name);
-    if (this.isArrayType(resolved.symbol.type)) {
+    if (isArrayType(resolved.symbol.type)) {
       throw new Error(`配列 ${node.name} は値として読み出せません`);
     }
     this.emit(
@@ -545,37 +550,11 @@ class BoqqiCompiler implements Visitor<void> {
   }
 
   private valueType(type: string): ValueType {
-    switch (type) {
-      case "int":
-      case "float":
-      case "string":
-      case "bool":
-      case "int[]":
-      case "float[]":
-      case "string[]":
-      case "bool[]":
-      case "void":
-        return type;
-      default:
-        throw new Error(`型 ${type} は存在しません`);
-    }
-  }
-
-  private isArrayType(type: ValueType): type is `${ScalarValueType}[]` {
-    return (
-      type === "int[]" ||
-      type === "float[]" ||
-      type === "string[]" ||
-      type === "bool[]"
-    );
-  }
-
-  private arrayElementType(type: `${ScalarValueType}[]`): ScalarValueType {
-    return type.slice(0, -2) as ScalarValueType;
+    return assertValueType(type);
   }
 
   private arrayLength(symbol: LocalSymbol): number {
-    if (!this.isArrayType(symbol.type) || symbol.arrayLength === undefined) {
+    if (!isArrayType(symbol.type) || symbol.arrayLength === undefined) {
       throw new Error(`変数 ${symbol.name} は配列型ではありません`);
     }
     return symbol.arrayLength;

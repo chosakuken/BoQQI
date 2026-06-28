@@ -1,5 +1,4 @@
 import { Visitor } from "../visitor.js";
-import { RuntimeValue } from "./runtimeValue/runtimeValue.js";
 import { ProgramNode } from "../../ast/nodes/program.js";
 import {
   BoolValue,
@@ -7,8 +6,12 @@ import {
   IntValue,
   StringValue,
   VoidValue,
+  createDefaultValue,
+  createNumericValue,
+  numericResultType,
   runtimeValueToString,
-} from "./runtimeValue/valuableValue.js";
+  type RuntimeValue,
+} from "../../runtime/runtimeValue.js";
 import { BinaryNode } from "../../ast/nodes/binary.js";
 import { BoolNode } from "../../ast/nodes/bool.js";
 import { IntNode } from "../../ast/nodes/int.js";
@@ -32,6 +35,11 @@ import { SourceFrame } from "../../diagnostics/sourceLocation.js";
 import { ReturnNode } from "../../ast/nodes/return.js";
 import { WhileNode } from "../../ast/nodes/while.js";
 import { IndexNode } from "../../ast/nodes/index.js";
+import {
+  arrayElementType,
+  isArrayType,
+  type RuntimeValueType,
+} from "../../types/valueType.js";
 
 interface Var {
   domain?: {
@@ -40,7 +48,7 @@ interface Var {
   };
   runtimeValue?: RuntimeValue;
   arrayLength?: number;
-  elementType?: string;
+  elementType?: RuntimeValueType;
 }
 
 interface EnvFrame {
@@ -140,18 +148,18 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       // 実行
       switch (node.operator) {
         case "+":
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue + rightValue,
           );
         case "-":
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue - rightValue,
           );
         case "*":
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue * rightValue,
           );
         case "/":
@@ -159,16 +167,16 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
           if (rightValue === 0) {
             this.fail("0 除算が検出されました");
           }
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue / rightValue,
           );
         case "%":
           if (rightValue === 0) {
             this.fail("0 除算が検出されました");
           }
-          return this.numberToRuntimeValue(
-            this.numericResultType(left, right),
+          return createNumericValue(
+            numericResultType(left, right),
             leftValue % rightValue,
           );
         default:
@@ -268,9 +276,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       const vars = this.currentEnvFrame().vars;
       const domain =
         node.domain === undefined ? undefined : this.evalDomain(node);
-      if (this.isArrayType(node.type)) {
+      if (isArrayType(node.type)) {
         const length = node.arrayLength ?? 0;
-        const elementType = node.type.slice(0, -2);
+        const elementType = arrayElementType(node.type);
         vars.set(node.name, {
           domain,
           arrayLength: length,
@@ -379,18 +387,6 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     });
   }
   // ヘルパー関数
-  private numericResultType(left: RuntimeValue, right: RuntimeValue): string {
-    return left.type === "int" && right.type === "int" ? "int" : "float";
-  }
-  private numberToRuntimeValue(type: string, value: number): RuntimeValue {
-    if (!Number.isFinite(value)) {
-      this.fail("計算結果が有限の数値ではありません");
-    }
-    if (type === "int") {
-      return new IntValue(Math.floor(value));
-    }
-    return new FloatValue(value);
-  }
   private evalWhileCondition(node: WhileNode): boolean {
     const cond = node.cond.accept(this);
     return cond.value as boolean;
@@ -398,13 +394,10 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
   private defaultValue(type: string): RuntimeValue {
     switch (type) {
       case "int":
-        return new IntValue(0);
       case "float":
-        return new FloatValue(0.0);
       case "string":
-        return new StringValue("");
       case "bool":
-        return new BoolValue(false);
+        return createDefaultValue(type);
       default:
         this.fail(`型 ${type} は存在しません`);
     }
@@ -626,15 +619,6 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       );
     }
     return indexValue;
-  }
-
-  private isArrayType(type: string): boolean {
-    return (
-      type === "int[]" ||
-      type === "float[]" ||
-      type === "string[]" ||
-      type === "bool[]"
-    );
   }
 
   private currentEnvFrame(): EnvFrame {

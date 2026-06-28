@@ -21,6 +21,12 @@ import { VarNode } from "../../ast/nodes/var.js";
 import { WhileNode } from "../../ast/nodes/while.js";
 import { BoqqiSemanticError } from "../../diagnostics/semanticError.js";
 import { SourceFrame } from "../../diagnostics/sourceLocation.js";
+import {
+  arrayElementType,
+  isArrayType,
+  isNumericType,
+  parseValueType,
+} from "../../types/valueType.js";
 import { Visitor } from "../visitor.js";
 import {
   FunctionSymbol,
@@ -157,7 +163,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
         if (argTypes.includes("void")) {
           this.fail(`関数 ${node.name} に void 型の値は渡せません`);
         }
-        if (argTypes.some((type) => this.isArrayType(type))) {
+        if (argTypes.some((type) => isArrayType(type))) {
           this.fail(`関数 ${node.name} に配列型の値は渡せません`);
         }
         return func.returnType;
@@ -171,7 +177,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
 
       for (const [index, argType] of argTypes.entries()) {
         const param = func.params[index];
-        if (this.isArrayType(argType)) {
+        if (isArrayType(argType)) {
           this.fail(`関数 ${node.name} に配列型の値は渡せません`);
         }
         if (param.type !== argType) {
@@ -193,19 +199,19 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
       }
 
       const valueType = node.expr.accept(this);
-      if (node.index === undefined && this.isArrayType(variable.type)) {
+      if (node.index === undefined && isArrayType(variable.type)) {
         this.fail(`配列 ${node.name} への一括代入はできません`);
       }
 
       if (node.index !== undefined) {
-        if (!this.isArrayType(variable.type)) {
+        if (!isArrayType(variable.type)) {
           this.fail(`変数 ${node.name} は配列型ではありません`);
         }
         const indexType = node.index.accept(this);
         if (indexType !== "int") {
           this.fail(`配列の添え字には int 型が必要ですが、${indexType} 型です`);
         }
-        const elementType = this.arrayElementType(variable.type);
+        const elementType = arrayElementType(variable.type);
         if (elementType !== valueType) {
           this.fail(
             `配列 ${node.name} の要素は ${elementType} 型ですが、${valueType} 型が代入されようとしました`,
@@ -238,7 +244,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
       }
 
       if (node.initValue !== undefined) {
-        if (this.isArrayType(type)) {
+        if (isArrayType(type)) {
           this.fail(`配列 ${node.name} は一括初期化できません`);
         }
         const initType = node.initValue.accept(this);
@@ -276,7 +282,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
       const targetType = node.target.accept(this);
       const indexType = node.index.accept(this);
 
-      if (!this.isArrayType(targetType)) {
+      if (!isArrayType(targetType)) {
         this.fail(
           `添え字アクセスの対象には配列型が必要ですが、${targetType} 型です`,
         );
@@ -285,7 +291,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
         this.fail(`配列の添え字には int 型が必要ですが、${indexType} 型です`);
       }
 
-      return this.arrayElementType(targetType);
+      return arrayElementType(targetType);
     });
   }
 
@@ -440,7 +446,7 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
     const maxType = domain.max.accept(this);
     const minType = domain.min.accept(this);
 
-    if (!this.isNumeric(maxType) || !this.isNumeric(minType)) {
+    if (!isNumericType(maxType) || !isNumericType(minType)) {
       this.fail(`${owner} の定義域には数値型を指定してください`);
     }
   }
@@ -450,46 +456,18 @@ class BoqqiSemanticAnalyzer implements Visitor<SemanticType> {
   }
 
   private valueType(type: string): SemanticType {
-    if (
-      type === "int" ||
-      type === "float" ||
-      type === "string" ||
-      type === "bool" ||
-      type === "void" ||
-      this.isArrayType(type)
-    ) {
-      return type;
+    const parsed = parseValueType(type);
+    if (parsed !== undefined) {
+      return parsed;
     }
 
     this.fail(`型 ${type} は存在しません`);
   }
 
   private assertNumeric(type: SemanticType, message: string): void {
-    if (!this.isNumeric(type)) {
+    if (!isNumericType(type)) {
       this.fail(message);
     }
-  }
-
-  private isNumeric(type: SemanticType): boolean {
-    return type === "int" || type === "float";
-  }
-
-  private isArrayType(
-    type: string,
-  ): type is `${"int" | "float" | "string" | "bool"}[]` {
-    return (
-      type === "int[]" ||
-      type === "float[]" ||
-      type === "string[]" ||
-      type === "bool[]"
-    );
-  }
-
-  private arrayElementType(type: SemanticType): SemanticType {
-    if (!this.isArrayType(type)) {
-      this.fail(`${type} 型は配列型ではありません`);
-    }
-    return type.slice(0, -2) as SemanticType;
   }
 
   private findVariable(name: string): VariableSymbol | undefined {

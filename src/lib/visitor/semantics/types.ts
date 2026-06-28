@@ -1,4 +1,4 @@
-import type { ValueType } from "../../vm/instruction.js";
+import type { ValueType } from "../../types/valueType.js";
 
 export type SemanticType = ValueType;
 
