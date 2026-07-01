@@ -92,11 +92,11 @@ domain は `max`、`min` の順にコンパイルされ、VM では命令実行�
 
 ## 境界値テストモード
 
-`boqqi run --max-test` / `boqqi run --min-test` では、各関数を一度ずつ境界値ケースで実行してから、main 相当のトップレベル処理を実行する。`--max-test` と `--min-test` は同時に指定できない。
+`boqqi run --max-test` / `boqqi run --min-test` では、各関数を一度ずつ境界値ケースで実行してから、main 相当のトップレベル処理を実行する。`boqqi run --test` は `--max-test` と `--min-test` を順に実行する。`--max-test` / `--min-test` / `--test` は同時に指定できない。
 
 関数単体の境界値テストでは、いったん引数型ごとのデフォルト値を積んで関数を呼び出す。その関数実体で最初に `CHECK_LOCAL` された domain 付き `int` / `float` 引数だけ、`--max-test` では `domain.max`、`--min-test` では `domain.min` に置き換える。同じ関数名は再帰呼び出しを含めて 1 回だけ引数置換の対象になる。
 
-main 相当のトップレベル処理も通常通り実行する。domain 付きの `int` / `float` 変数または配列要素を宣言するときは、`--max-test` では `domain.max`、`--min-test` では `domain.min` に置き換えて保存する。
+main 相当のトップレベル処理も通常通り実行する。`SCAN` 由来の `int` / `float` 値が domain 付きの数値変数または配列要素へ保存されるときは、`--max-test` では `domain.max`、`--min-test` では `domain.min` に置き換えて保存する。通常のリテラル、計算結果、`LOAD` 由来の値は境界値への置き換え対象ではない。
 
 宣言時・代入時・関数引数・戻り値の範囲チェックは通常通り行うため、計算済みの値が対象 domain を超える場合は実行時エラーになる。
 このモードではプログラムの `WRITE` 出力は抑制され、境界値を代入したタイミングを `[max-test] name <- value` または `[min-test] name <- value` 形式のログとして標準出力に出力する。
