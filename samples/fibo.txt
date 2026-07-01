@@ -23,9 +23,7 @@ function fiboByRecursion(int{max: 20, min: 1} n): int{max: 10000, min: 1} {
 
 
 int{max: 20, min: 1} n = 1;
-
 print("1～20までの好きな整数を入力してください： ");
-
 n = scanInt();
 
 print("配列で求めた場合： ");
