@@ -274,7 +274,7 @@ export class BoqqiVM {
         this.write(instruction.newline);
         break;
       case "SCAN":
-        this.stack.push(this.input.scan(instruction.valueType));
+        this.stack.push(this.scanInput(instruction.valueType));
         break;
       case "CALL":
         this.call(instruction.name, instruction.argc);
@@ -649,6 +649,13 @@ export class BoqqiVM {
 
   private isBoundaryTestMode(): boolean {
     return this.mode === "max-test" || this.mode === "min-test";
+  }
+
+  private scanInput(type: ScalarValueType): RuntimeValue {
+    if (this.isBoundaryTestMode()) {
+      return createDefaultValue(type);
+    }
+    return this.input.scan(type);
   }
 
   private assertWithinDomain(
