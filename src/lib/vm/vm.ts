@@ -28,6 +28,11 @@ interface LocalSlot {
   runtimeValue?: RuntimeValue;
 }
 
+interface StackEntry {
+  readonly value: RuntimeValue;
+  readonly fromNumericScan: boolean;
+}
+
 interface CallFrame {
   readonly functionName: string;
   readonly returnPc: number;
@@ -48,6 +53,7 @@ export interface BoqqiVMOptions {
 export class BoqqiVM {
   private pc = 0;
   private readonly stack: RuntimeValue[] = []; // スタックマシン
+  private readonly stackNumericScanFlags: boolean[] = [];
   private readonly frames: CallFrame[] = []; // 変数表
   private readonly input: InputScanner;
   private readonly mode: BoqqiVMExecutionMode;
@@ -120,13 +126,14 @@ export class BoqqiVM {
   ): void {
     const savedPc = this.pc;
     const savedStackLength = this.stack.length;
+    const savedStackFlagLength = this.stackNumericScanFlags.length;
     const savedGlobalLocals = this.frames[0].locals.map((local) => ({
       ...local,
     }));
 
     this.pc = -1;
     for (const param of params) {
-      this.stack.push(this.defaultValueForBoundaryTest(param.type));
+      this.push(this.defaultValueForBoundaryTest(param.type));
     }
     this.call(name, params.length);
 
@@ -155,6 +162,7 @@ export class BoqqiVM {
     }
 
     this.stack.length = savedStackLength;
+    this.stackNumericScanFlags.length = savedStackFlagLength;
     this.frames[0].locals.splice(
       0,
       this.frames[0].locals.length,
@@ -179,41 +187,49 @@ export class BoqqiVM {
   private execute(instruction: Instruction): void {
     switch (instruction.op) {
       case "PUSH_INT":
-        this.stack.push(new IntValue(instruction.value));
+        this.push(new IntValue(instruction.value));
         break;
       case "PUSH_FLOAT":
-        this.stack.push(new FloatValue(instruction.value));
+        this.push(new FloatValue(instruction.value));
         break;
       case "PUSH_STRING":
-        this.stack.push(new StringValue(instruction.value));
+        this.push(new StringValue(instruction.value));
         break;
       case "PUSH_BOOL":
-        this.stack.push(new BoolValue(instruction.value));
+        this.push(new BoolValue(instruction.value));
         break;
       case "PUSH_VOID":
-        this.stack.push(new VoidValue());
+        this.push(new VoidValue());
         break;
       case "LOAD":
-        this.stack.push(
+        this.push(
           this.loadLocal(instruction.scope, instruction.slot, instruction.name),
         );
         break;
       case "STORE":
-        this.storeLocal(
-          instruction.scope,
-          instruction.slot,
-          instruction.name,
-          this.pop(),
-        );
+        {
+          const entry = this.popEntry();
+          this.storeLocal(
+            instruction.scope,
+            instruction.slot,
+            instruction.name,
+            entry.value,
+            entry.fromNumericScan,
+          );
+        }
         break;
       case "DECLARE":
-        this.declareLocal(
-          instruction.slot,
-          instruction.name,
-          instruction.type,
-          this.pop(),
-          this.popDomain(instruction.name, instruction.hasDomain),
-        );
+        {
+          const entry = this.popEntry();
+          this.declareLocal(
+            instruction.slot,
+            instruction.name,
+            instruction.type,
+            entry.value,
+            this.popDomain(instruction.name, instruction.hasDomain),
+            entry.fromNumericScan,
+          );
+        }
         break;
       case "DECLARE_ARRAY":
         this.declareArrayLocal(
@@ -274,7 +290,10 @@ export class BoqqiVM {
         this.write(instruction.newline);
         break;
       case "SCAN":
-        this.stack.push(this.scanInput(instruction.valueType));
+        this.push(
+          this.scanInput(instruction.valueType),
+          this.isBoundaryNumericScan(instruction.valueType),
+        );
         break;
       case "CALL":
         this.call(instruction.name, instruction.argc);
@@ -296,7 +315,7 @@ export class BoqqiVM {
 
     switch (op) {
       case "ADD":
-        this.stack.push(
+        this.push(
           createNumericValue(
             numericResultType(left, right),
             leftValue + rightValue,
@@ -304,7 +323,7 @@ export class BoqqiVM {
         );
         break;
       case "SUB":
-        this.stack.push(
+        this.push(
           createNumericValue(
             numericResultType(left, right),
             leftValue - rightValue,
@@ -312,7 +331,7 @@ export class BoqqiVM {
         );
         break;
       case "MUL":
-        this.stack.push(
+        this.push(
           createNumericValue(
             numericResultType(left, right),
             leftValue * rightValue,
@@ -323,7 +342,7 @@ export class BoqqiVM {
         if (rightValue === 0) {
           this.fail("0 除算が検出されました");
         }
-        this.stack.push(
+        this.push(
           createNumericValue(
             numericResultType(left, right),
             leftValue / rightValue,
@@ -334,7 +353,7 @@ export class BoqqiVM {
         if (rightValue === 0) {
           this.fail("0 除算が検出されました");
         }
-        this.stack.push(
+        this.push(
           createNumericValue(
             numericResultType(left, right),
             leftValue % rightValue,
@@ -352,22 +371,22 @@ export class BoqqiVM {
 
     switch (op) {
       case "EQ":
-        this.stack.push(new BoolValue(leftValue == rightValue));
+        this.push(new BoolValue(leftValue == rightValue));
         break;
       case "NE":
-        this.stack.push(new BoolValue(leftValue != rightValue));
+        this.push(new BoolValue(leftValue != rightValue));
         break;
       case "GT":
-        this.stack.push(new BoolValue(leftValue > rightValue));
+        this.push(new BoolValue(leftValue > rightValue));
         break;
       case "LT":
-        this.stack.push(new BoolValue(leftValue < rightValue));
+        this.push(new BoolValue(leftValue < rightValue));
         break;
       case "GE":
-        this.stack.push(new BoolValue(leftValue >= rightValue));
+        this.push(new BoolValue(leftValue >= rightValue));
         break;
       case "LE":
-        this.stack.push(new BoolValue(leftValue <= rightValue));
+        this.push(new BoolValue(leftValue <= rightValue));
         break;
     }
   }
@@ -385,7 +404,7 @@ export class BoqqiVM {
       slot + indexValue,
       `${name}[${String(indexValue)}]`,
     );
-    this.stack.push(
+    this.push(
       this.assumeDefined(
         local.runtimeValue,
         `Internal VM error: uninitialized local ${name}[${String(indexValue)}]`,
@@ -399,7 +418,7 @@ export class BoqqiVM {
     name: string,
     length: number,
   ): void {
-    const value = this.pop();
+    const valueEntry = this.popEntry();
     const index = this.pop();
     const indexValue = this.indexValue(name, index, length);
     const local = this.localSlot(
@@ -409,6 +428,9 @@ export class BoqqiVM {
     );
     const elementName = `${name}[${String(indexValue)}]`;
 
+    const value = valueEntry.fromNumericScan
+      ? this.boundaryTestValue(elementName, valueEntry.value, local.domain)
+      : valueEntry.value;
     this.assertWithinDomain(elementName, value, local.domain);
     local.runtimeValue = value;
   }
@@ -419,14 +441,18 @@ export class BoqqiVM {
     type: ValueType,
     value: RuntimeValue,
     domain: DomainSpec | undefined,
+    fromNumericScan: boolean,
   ): void {
     const local = this.localSlot(this.currentFrame(), slot, name);
+    const storedValue = fromNumericScan
+      ? this.boundaryTestValue(name, value, domain)
+      : value;
 
-    this.assertWithinDomain(name, value, domain);
+    this.assertWithinDomain(name, storedValue, domain);
     local.name = name;
     local.type = type;
     local.domain = domain;
-    local.runtimeValue = this.boundaryTestValue(name, value, domain);
+    local.runtimeValue = storedValue;
   }
 
   private declareArrayLocal(
@@ -454,7 +480,7 @@ export class BoqqiVM {
       local.name = elementName;
       local.type = elementType;
       local.domain = domain;
-      local.runtimeValue = this.boundaryTestValue(elementName, value, domain);
+      local.runtimeValue = value;
     }
   }
 
@@ -485,11 +511,15 @@ export class BoqqiVM {
     slot: number,
     name: string,
     value: RuntimeValue,
+    fromNumericScan: boolean,
   ): void {
     const local = this.localSlot(this.frameForScope(scope), slot, name);
+    const storedValue = fromNumericScan
+      ? this.boundaryTestValue(name, value, local.domain)
+      : value;
 
-    this.assertWithinDomain(name, value, local.domain);
-    local.runtimeValue = value;
+    this.assertWithinDomain(name, storedValue, local.domain);
+    local.runtimeValue = storedValue;
   }
 
   private loadLocal(
@@ -567,16 +597,29 @@ export class BoqqiVM {
     }
 
     this.pc = frame.returnPc;
-    this.stack.push(value);
+    this.push(value);
   }
 
-  private pop(): RuntimeValue {
+  private push(value: RuntimeValue, fromNumericScan = false): void {
+    this.stack.push(value);
+    this.stackNumericScanFlags.push(fromNumericScan);
+  }
+
+  private popEntry(): StackEntry {
     const value = this.stack.pop();
+    const fromNumericScan = this.stackNumericScanFlags.pop();
     if (value === undefined) {
       this.fail("スタックが空です");
     }
+    if (fromNumericScan === undefined) {
+      this.fail("スタックの入力由来情報が空です");
+    }
 
-    return value;
+    return { value, fromNumericScan };
+  }
+
+  private pop(): RuntimeValue {
+    return this.popEntry().value;
   }
 
   private popDomain(name: string, hasDomain: boolean): DomainSpec | undefined {
@@ -656,6 +699,10 @@ export class BoqqiVM {
       return createDefaultValue(type);
     }
     return this.input.scan(type);
+  }
+
+  private isBoundaryNumericScan(type: ScalarValueType): boolean {
+    return this.isBoundaryTestMode() && (type === "int" || type === "float");
   }
 
   private assertWithinDomain(
