@@ -44,7 +44,7 @@ export function createInterpretCommand(): Command {
             {
               mode: maxTest ? "max-test" : minTest ? "min-test" : "normal",
               boundaryTestLog: boundaryTest ? writeBoundaryTestLog : undefined,
-              interactiveInput: input.interactive,
+              interactiveInput: input.interactive && !boundaryTest,
             },
           );
           interpreter.visitProgram(ast);

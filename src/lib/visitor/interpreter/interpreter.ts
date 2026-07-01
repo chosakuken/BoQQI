@@ -39,6 +39,7 @@ import {
   arrayElementType,
   isArrayType,
   type RuntimeValueType,
+  type ScalarValueType,
 } from "../../types/valueType.js";
 
 interface Var {
@@ -138,19 +139,19 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     });
     this.funcs.set("scanInt", {
       kind: "builtin",
-      call: () => this.input.scan("int"),
+      call: () => this.scanInput("int"),
     });
     this.funcs.set("scanFloat", {
       kind: "builtin",
-      call: () => this.input.scan("float"),
+      call: () => this.scanInput("float"),
     });
     this.funcs.set("scanString", {
       kind: "builtin",
-      call: () => this.input.scan("string"),
+      call: () => this.scanInput("string"),
     });
     this.funcs.set("scanBool", {
       kind: "builtin",
-      call: () => this.input.scan("bool"),
+      call: () => this.scanInput("bool"),
     });
   }
   // ビジター
@@ -569,6 +570,13 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
 
   private isBoundaryTestMode(): boolean {
     return this.mode === "max-test" || this.mode === "min-test";
+  }
+
+  private scanInput(type: ScalarValueType): RuntimeValue {
+    if (this.isBoundaryTestMode()) {
+      return createDefaultValue(type);
+    }
+    return this.input.scan(type);
   }
 
   private storeArrayElement(
