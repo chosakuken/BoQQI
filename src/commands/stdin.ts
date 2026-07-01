@@ -1,8 +1,13 @@
 import process from "node:process";
 
-export async function readPipedStdin(): Promise<string> {
+export interface CliInput {
+  readonly source: string;
+  readonly interactive: boolean;
+}
+
+export async function readCliInput(): Promise<CliInput> {
   if (process.stdin.isTTY) {
-    return "";
+    return { source: "", interactive: true };
   }
 
   process.stdin.setEncoding("utf-8");
@@ -11,5 +16,5 @@ export async function readPipedStdin(): Promise<string> {
     const value: unknown = chunk;
     chunks.push(typeof value === "string" ? value : String(value));
   }
-  return chunks.join("");
+  return { source: chunks.join(""), interactive: false };
 }
