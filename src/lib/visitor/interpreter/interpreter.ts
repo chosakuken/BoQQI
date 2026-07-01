@@ -294,17 +294,28 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         this.findVar(node.name),
         `Internal interpreter error: unresolved variable ${node.name}`,
       );
+      const shouldUseScanBoundary = this.isBoundaryNumericScan(node.expr);
       if (node.index !== undefined) {
         const index = node.index.accept(this);
-        this.storeArrayElement(node.name, currentVar, index, value);
+        this.storeArrayElement(
+          node.name,
+          currentVar,
+          index,
+          shouldUseScanBoundary
+            ? this.boundaryTestValue(node.name, value, currentVar.domain)
+            : value,
+        );
         return value;
       }
-      this.assertWithinDomain(node.name, value, currentVar.domain);
+      const storedValue = shouldUseScanBoundary
+        ? this.boundaryTestValue(node.name, value, currentVar.domain)
+        : value;
+      this.assertWithinDomain(node.name, storedValue, currentVar.domain);
       if (currentVar.runtimeValue === undefined) {
         this.fail(`配列 ${node.name} への一括代入はできません`);
       }
-      currentVar.runtimeValue = value;
-      return value;
+      currentVar.runtimeValue = storedValue;
+      return storedValue;
     });
   }
   visitDeclare(node: DeclareNode): RuntimeValue {
@@ -329,11 +340,7 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
           );
           vars.set(`${node.name}[${String(index)}]`, {
             domain,
-            runtimeValue: this.boundaryTestValue(
-              `${node.name}[${String(index)}]`,
-              value,
-              domain,
-            ),
+            runtimeValue: value,
           });
         }
         return new IntValue(0);
@@ -343,11 +350,16 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
         node.initValue !== undefined
           ? node.initValue.accept(this)
           : this.defaultValue(node.type);
-      this.assertWithinDomain(node.name, value, domain);
+      const storedValue =
+        node.initValue !== undefined &&
+        this.isBoundaryNumericScan(node.initValue)
+          ? this.boundaryTestValue(node.name, value, domain)
+          : value;
+      this.assertWithinDomain(node.name, storedValue, domain);
 
       vars.set(node.name, {
         domain,
-        runtimeValue: this.boundaryTestValue(node.name, value, domain),
+        runtimeValue: storedValue,
       });
       return new IntValue(0); // 正常動作として 0 を返す
     });
@@ -577,6 +589,14 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
       return createDefaultValue(type);
     }
     return this.input.scan(type);
+  }
+
+  private isBoundaryNumericScan(node: AstNode): boolean {
+    return (
+      this.isBoundaryTestMode() &&
+      node instanceof CallNode &&
+      (node.name === "scanInt" || node.name === "scanFloat")
+    );
   }
 
   private storeArrayElement(
