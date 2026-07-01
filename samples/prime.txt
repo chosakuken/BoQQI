@@ -1,4 +1,5 @@
-function isPrime(int{max: 1000, min: 0} n): bool {
+// [1000:1] の変数 n が素数であるかどうかを判別する関数
+function isPrime(int{max: 1000, min: 1} n): bool {
     int{max: n, min: 2} i = 2;
     while(i < n) {
         if (n % i == 0) {
@@ -9,10 +10,13 @@ function isPrime(int{max: 1000, min: 0} n): bool {
     return true;
 }
 
-int{max: 1000, min: 0} a = 13;
+int{max: 1000, min: 1} n = 1;
+print("1～1000までの好きな整数を入力してください： ");
+n = scanInt();
 
-if (isPrime(a)) {
-    print("a は素数です");
+print(n);
+if (isPrime(n)) {
+    println(" は素数です");
 } else {
-    print("a は素数ではありません");
+    println(" は素数ではありません");
 }

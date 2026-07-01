@@ -1,0 +1,19 @@
+// 有名なfizzbuzz問題だよ
+
+int{max: 1000, min: 1} n = 1;
+print("1～1000までの好きな整数を入力してください： ");
+n = scanInt();
+
+if (n % 3 == 0) {
+    if (n % 5 == 0) {
+        println("FizzBuzz");
+    } else {
+        println("Fizz");
+    }
+} else {
+    if (n % 5 == 0) {
+        println("Buzz");
+    } else {
+        println(n);
+    }
+}

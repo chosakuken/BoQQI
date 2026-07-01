@@ -1,13 +1,33 @@
-function fibo(int{max: 10, min: 1} n): int{max: 100, min: 0} {
+// フィボナッチ数を求めるプログラム
+
+// 配列から求める
+function fiboByArray(int{max: 20, min: 1} n): int{max: 10000, min: 1} {
+    int[20]{max: 10000, min: 0} fibo;
+    fibo[0] = 1;
+    fibo[1] = 1;
+    int{max: n, min: 2} i = 2;
+    while(i < n) {
+        fibo[i] = fibo[i-1] + fibo[i-2];
+        i = i + 1;
+    }
+    return fibo[n-1];
+}
+
+// 再帰から求める
+function fiboByRecursion(int{max: 20, min: 1} n): int{max: 10000, min: 1} {
     if (n <= 2) {
         return 1;
     }
-    return fibo(n-1) + fibo(n-2);
+    return fiboByRecursion(n-1) + fiboByRecursion(n-2);
 }
 
-int{max: 10, min: 0} i = 1;
 
-while(i < 10) {
-    print(fibo(i));
-    i = i + 1;
-}
+int{max: 20, min: 1} n = 1;
+print("1～20までの好きな整数を入力してください： ");
+n = scanInt();
+
+print("配列で求めた場合： ");
+println(fiboByArray(n));
+
+print("再帰で求めた場合： ");
+println(fiboByRecursion(n));
