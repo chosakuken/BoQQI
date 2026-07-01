@@ -2,7 +2,7 @@ import { Command } from "commander";
 import process from "node:process";
 import { bytecodeFromJson } from "../lib/vm/bytecodeJson.js";
 import { BoqqiVM } from "../lib/vm/vm.js";
-import { readPipedStdin } from "./stdin.js";
+import { readCliInput } from "./stdin.js";
 import {
   handleBytecodeJsonError,
   handleCliError,
@@ -21,7 +21,7 @@ export function createRunCommand(): Command {
         options: { maxTest?: boolean; minTest?: boolean },
       ) => {
         const bytecodeJson = await readSourceFile(file);
-        const input = await readPipedStdin();
+        const input = await readCliInput();
         try {
           const bytecode = bytecodeFromJson(JSON.parse(bytecodeJson));
           const maxTest = options.maxTest === true;
@@ -46,10 +46,11 @@ export function createRunCommand(): Command {
               }
               process.stdout.write(txt);
             },
-            input,
+            input.source,
             {
               mode: maxTest ? "max-test" : minTest ? "min-test" : "normal",
               boundaryTestLog: boundaryTest ? writeBoundaryTestLog : undefined,
+              interactiveInput: input.interactive,
             },
           );
           vm.run();

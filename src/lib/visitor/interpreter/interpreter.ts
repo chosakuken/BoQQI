@@ -83,6 +83,7 @@ export type BoqqiInterpreterExecutionMode = "normal" | "max-test" | "min-test";
 export interface BoqqiInterpreterOptions {
   readonly mode?: BoqqiInterpreterExecutionMode;
   readonly boundaryTestLog?: (text: string) => void;
+  readonly interactiveInput?: boolean;
 }
 
 export class BoqqiInterpreter implements Visitor<RuntimeValue> {
@@ -102,7 +103,9 @@ export class BoqqiInterpreter implements Visitor<RuntimeValue> {
     options: BoqqiInterpreterOptions = {},
   ) {
     this.output = outputDevice;
-    this.input = new InputScanner(inputSource);
+    this.input = new InputScanner(inputSource, {
+      interactive: options.interactiveInput === true,
+    });
     this.mode = options.mode ?? "normal";
     this.boundaryTestLog = options.boundaryTestLog;
     this.funcs = new Map<string, FunctionValue>();

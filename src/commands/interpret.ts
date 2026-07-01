@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import process from "node:process";
 import { BoqqiInterpreter } from "../lib/visitor/interpreter/interpreter.js";
-import { readPipedStdin } from "./stdin.js";
+import { readCliInput } from "./stdin.js";
 import { handleCliError, parseAndAnalyze, readSourceFile } from "./utils.js";
 
 export function createInterpretCommand(): Command {
@@ -16,7 +16,7 @@ export function createInterpretCommand(): Command {
         options: { maxTest?: boolean; minTest?: boolean },
       ) => {
         const source = await readSourceFile(file);
-        const input = await readPipedStdin();
+        const input = await readCliInput();
         try {
           const ast = parseAndAnalyze(source);
           const maxTest = options.maxTest === true;
@@ -40,10 +40,11 @@ export function createInterpretCommand(): Command {
               }
               process.stdout.write(txt);
             },
-            input,
+            input.source,
             {
               mode: maxTest ? "max-test" : minTest ? "min-test" : "normal",
               boundaryTestLog: boundaryTest ? writeBoundaryTestLog : undefined,
+              interactiveInput: input.interactive,
             },
           );
           interpreter.visitProgram(ast);

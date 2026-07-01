@@ -42,6 +42,7 @@ export type BoqqiVMExecutionMode = "normal" | "max-test" | "min-test";
 export interface BoqqiVMOptions {
   readonly mode?: BoqqiVMExecutionMode;
   readonly boundaryTestLog?: (text: string) => void;
+  readonly interactiveInput?: boolean;
 }
 
 export class BoqqiVM {
@@ -61,7 +62,9 @@ export class BoqqiVM {
     inputSource = "",
     options: BoqqiVMOptions = {},
   ) {
-    this.input = new InputScanner(inputSource);
+    this.input = new InputScanner(inputSource, {
+      interactive: options.interactiveInput === true,
+    });
     this.mode = options.mode ?? "normal";
     this.boundaryTestLog = options.boundaryTestLog;
     this.frames.push({
