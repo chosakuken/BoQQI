@@ -1,4 +1,0 @@
-int{max: 100, min: 0} score = 80;
-print(score);
-score = score + 30;
-print(score);
